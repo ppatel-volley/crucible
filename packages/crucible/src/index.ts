@@ -1,0 +1,164 @@
+#!/usr/bin/env node
+
+import { Command } from "commander"
+import { existsSync } from "node:fs"
+import { homedir } from "node:os"
+import { join } from "node:path"
+import type { GlobalOptions } from "./types.js"
+
+export function resolveGlobalOptions(program: Command): GlobalOptions {
+    const opts = program.opts()
+    return {
+        color: opts.color ?? true,
+        json: opts.json ?? false,
+        verbose: opts.verbose ?? false,
+        quiet: opts.quiet ?? false,
+    }
+}
+
+function detectColorDefault(): boolean {
+    if (process.env.NO_COLOR !== undefined) return false
+    if (process.env.TERM === "dumb") return false
+    if (!process.stdout.isTTY) return false
+    return true
+}
+
+function getConfigFilePath(): string {
+    if (process.platform === "win32") {
+        return join(process.env.APPDATA || join(homedir(), "AppData", "Roaming"), "crucible", "config.json")
+    }
+    return join(process.env.XDG_CONFIG_HOME || join(homedir(), ".config"), "crucible", "config.json")
+}
+
+function createProgram(): Command {
+    const program = new Command()
+
+    program
+        .name("crucible")
+        .description("Build TV games with AI")
+        .version("0.1.0")
+        .option("--no-color", "Disable colour output", detectColorDefault())
+        .option("--json", "Output as JSON", false)
+        .option("-v, --verbose", "Verbose output", false)
+        .option("-q, --quiet", "Suppress non-essential output", false)
+
+    program
+        .command("create")
+        .description("Create a new TV game")
+        .action(() => {
+            console.log("Not implemented yet")
+        })
+
+    const stubCommands = [
+        { name: "agent", description: "AI agent for game development" },
+        { name: "dev", description: "Start local development server" },
+        { name: "publish", description: "Publish game to registry" },
+        { name: "promote", description: "Promote game to next environment" },
+        { name: "rollback", description: "Rollback to a previous version" },
+        { name: "logs", description: "View game logs" },
+        { name: "status", description: "Check game status" },
+        { name: "list", description: "List games" },
+        { name: "login", description: "Authenticate with Crucible" },
+    ]
+
+    for (const cmd of stubCommands) {
+        program
+            .command(cmd.name)
+            .description(cmd.description)
+            .action(() => {
+                console.log("Not implemented yet")
+            })
+    }
+
+    return program
+}
+
+async function main(): Promise<void> {
+    const program = createProgram()
+
+    // First-run detection
+    const configFile = getConfigFilePath()
+    if (!existsSync(configFile) && process.argv.length <= 2) {
+        const opts = resolveGlobalOptions(program)
+        if (opts.json) {
+            console.log(JSON.stringify({ welcome: true, message: "Welcome to Crucible — build TV games with AI." }))
+        } else {
+            console.log()
+            console.log("  Welcome to Crucible — build TV games with AI.")
+            console.log()
+            console.log("  Step 1: crucible login")
+            console.log("  Step 2: crucible create \"My Game\"")
+            console.log()
+            console.log("  For documentation: crucible --help")
+            console.log()
+        }
+    }
+
+    await program.parseAsync(process.argv)
+}
+
+class CrucibleError extends Error {
+    code: string
+    category: string
+    shortName: string
+    recovery: string
+    retryable: boolean
+    exitCode: number
+
+    constructor(options: {
+        code: string
+        category: string
+        shortName: string
+        message: string
+        recovery: string
+        retryable: boolean
+        cause?: Error
+        exitCode?: number
+    }) {
+        super(options.message, { cause: options.cause })
+        this.code = options.code
+        this.category = options.category
+        this.shortName = options.shortName
+        this.recovery = options.recovery
+        this.retryable = options.retryable
+        this.exitCode = options.exitCode ?? 1
+    }
+}
+
+main().catch((error: unknown) => {
+    if (error instanceof CrucibleError) {
+        const program = createProgram()
+        const opts = resolveGlobalOptions(program)
+        if (opts.json) {
+            console.error(JSON.stringify({
+                error: true,
+                code: error.code,
+                category: error.category,
+                shortName: error.shortName,
+                message: error.message,
+                recovery: error.recovery,
+                retryable: error.retryable,
+            }))
+        } else {
+            console.error(`✗ ${error.message}`)
+            if (error.recovery) {
+                console.error()
+                console.error(`  Recovery:`)
+                console.error(`    ${error.recovery}`)
+            }
+            console.error()
+            console.error(`  Error: ${error.code} (${error.category}/${error.shortName})`)
+        }
+        process.exit(error.exitCode)
+    }
+
+    if (error instanceof Error) {
+        console.error(`✗ ${error.message}`)
+        process.exit(1)
+    }
+
+    console.error("✗ An unexpected error occurred")
+    process.exit(1)
+})
+
+export { CrucibleError, createProgram }
