@@ -28,19 +28,19 @@ All 8 work items done. 124 tests passing, typecheck clean.
 - Round 2: Pre-parse global flags, template clone shorthand, GitHub org default — fixed/documented (`3b882fd`)
 - Round 3: Error rethrow guard, extensionless text file handling — fixed (pending commit)
 
-### Milestone 1B: AI Agent — NOT STARTED
+### Milestone 1B: AI Agent — COMPLETE
 
-Next up. 7 work items. See `docs/development-plan.md` for details.
+All 7 work items done. 205 tests passing (81 new), typecheck clean.
 
-| # | Work Item | Status |
-|---|-----------|--------|
-| 1B.1 | Context assembler (`agent/context.ts`) | Not started |
-| 1B.2 | File restriction enforcer (`agent/restrictions.ts`) | Not started |
-| 1B.3 | Claude API client (`api/claude.ts`) | Not started |
-| 1B.4 | Agent runner (`agent/runner.ts`) | Not started |
-| 1B.5 | Session persistence (`agent/session.ts`) | Not started |
-| 1B.6 | `crucible agent` command | Not started |
-| 1B.7 | Bundle VGF docs | Not started |
+| # | Work Item | Status | Commit | Notes |
+|---|-----------|--------|--------|-------|
+| 1B.1 | Context assembler (`agent/context.ts`) | Done | `51e3efa` | Priority-based loading, 180K token budget, VGF docs on-demand |
+| 1B.2 | File restriction enforcer (`agent/restrictions.ts`) | Done | `51e3efa` | Deny-first patterns, audit logging, custom glob matcher |
+| 1B.3 | Claude API client (`api/claude.ts`) | Done | `51e3efa` | @anthropic-ai/sdk wrapper, 4 tool definitions, error mapping |
+| 1B.4 | Agent runner (`agent/runner.ts`) | Done | `51e3efa` | Conversation loop, tool dispatch, selective auto-commit |
+| 1B.5 | Session persistence (`agent/session.ts`) | Done | `51e3efa` | JSON sessions, 24hr expiry, --resume support |
+| 1B.6 | `crucible agent` command | Done | `51e3efa` | Interactive readline UX, edit summaries, Ctrl+C handling |
+| 1B.7 | Bundle VGF docs | Done | `51e3efa` | BUILDING_TV_GAMES.md bundled with loader utility |
 
 ### Milestone 1C: Local Dev Server — NOT STARTED
 ### Milestone 1D: E2E Testing — NOT STARTED
