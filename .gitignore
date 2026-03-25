@@ -144,6 +144,5 @@ vite.config.ts.timestamp-*
 .agent-comms/inbox/
 .agent-comms/outbox/
 
-# External agent tool configs (Cursor rules committed separately)
-.agents/
+# External agent tool configs
 .windsurf/
