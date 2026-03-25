@@ -1,2 +1,5 @@
 export { buildTokenMap, toKebabCase, toPascalCase, validateGameName } from "./tokens.js"
 export { cloneTemplate, replaceTokens, removeTemplateArtifacts } from "./engine.js"
+export { generateDockerfile } from "./dockerfile.js"
+export { generateCIWorkflow } from "./ci-workflow.js"
+export { generateCrucibleJson, CrucibleJsonSchema } from "./crucible-json.js"
