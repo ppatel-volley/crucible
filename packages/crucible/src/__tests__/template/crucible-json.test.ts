@@ -5,7 +5,7 @@ import { buildTokenMap } from "../../template/tokens.js"
 const tokenMap = buildTokenMap("Scottish Trivia")
 const validOptions = {
     tokenMap,
-    author: "test-author",
+    author: "test@volley.com",
     description: "A fun trivia game",
     dockerfileChecksum: "a".repeat(64),
     ciWorkflowChecksum: "b".repeat(64),
@@ -37,7 +37,7 @@ describe("generateCrucibleJson", () => {
         expect(parsed.name).toBe("scottish-trivia")
         expect(parsed.displayName).toBe("Scottish Trivia")
         expect(parsed.description).toBe("A fun trivia game")
-        expect(parsed.author).toBe("test-author")
+        expect(parsed.author).toBe("test@volley.com")
         expect(parsed.version).toBe("0.1.0")
         expect(parsed.gameId).toBe("scottish-trivia")
         expect(parsed.template).toBe("hello-weekend")
@@ -61,12 +61,11 @@ describe("generateCrucibleJson", () => {
         expect(a.checksum).toBe(b.checksum)
     })
 
-    it("rejects invalid author (empty causes invalid name/gameId)", () => {
-        const badMap = buildTokenMap("x")
+    it("rejects invalid author email", () => {
         expect(() =>
             generateCrucibleJson({
                 ...validOptions,
-                tokenMap: badMap,
+                author: "not-an-email",
             }),
         ).toThrow()
     })

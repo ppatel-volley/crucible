@@ -6,11 +6,11 @@ export const CrucibleJsonSchema = z.object({
     name: z.string().regex(/^[a-z0-9][a-z0-9-]{1,48}[a-z0-9]$/),
     displayName: z.string().min(1).max(100),
     description: z.string().max(500),
-    author: z.string(),
+    author: z.string().email(),
     version: z.string().regex(/^\d+\.\d+\.\d+$/),
     gameId: z.string().regex(/^[a-z0-9][a-z0-9-]{1,48}[a-z0-9]$/),
     tile: z.object({ imageUrl: z.string(), heroImageUrl: z.string() }),
-    createdAt: z.string(),
+    createdAt: z.string().datetime(),
     template: z.literal("hello-weekend"),
     templateVersion: z.string(),
     checksums: z.object({

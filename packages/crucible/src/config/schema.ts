@@ -26,7 +26,7 @@ export const CrucibleConfigSchema = z.object({
 export const DEFAULT_CONFIG: CrucibleConfig = {
     userEmail: null,
     defaultEnvironment: "dev",
-    githubOrg: "ppatel-volley", // DEV: personal org for testing. Production: "Volley-Inc"
+    githubOrg: "Volley-Inc",
     registryApiUrls: {},
     agentModel: "claude-sonnet-4-20250514",
     gamesDir: null,

@@ -36,9 +36,8 @@ export function registerCreateCommand(program: Command): void {
         .command("create <display-name>")
         .description("Create a new TV game")
         .option("-d, --description <desc>", "Game description", "")
-        .option("--skip-github", "Skip GitHub repo creation", false)
         .option("--skip-install", "Skip pnpm install", false)
-        .action(async (displayName: string, opts: { description: string; skipGithub: boolean; skipInstall: boolean }) => {
+        .action(async (displayName: string, opts: { description: string; skipInstall: boolean }) => {
             const paths = resolvePaths()
             const config = await loadConfig(paths)
             const logger = createLogger(resolveGlobalOpts(program))
@@ -46,7 +45,7 @@ export function registerCreateCommand(program: Command): void {
             const options: CreateOptions = {
                 displayName,
                 description: opts.description,
-                skipGithub: opts.skipGithub,
+                skipGithub: false,
                 skipInstall: opts.skipInstall,
             }
 
@@ -216,7 +215,7 @@ export async function executeCreate(
             }
         }
 
-        // Step 7: GitHub repo creation (unless --skip-github)
+        // Step 7: GitHub repo creation
         let repoUrl: string | undefined
         if (!options.skipGithub) {
             const ghSpinner = logger.spinner("Creating GitHub repository...")

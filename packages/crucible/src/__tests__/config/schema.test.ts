@@ -42,7 +42,7 @@ describe("CrucibleConfigSchema", () => {
 
 describe("DEFAULT_CONFIG", () => {
     it("has sensible defaults", () => {
-        expect(DEFAULT_CONFIG.githubOrg).toBe("ppatel-volley")
+        expect(DEFAULT_CONFIG.githubOrg).toBe("Volley-Inc")
         expect(DEFAULT_CONFIG.defaultEnvironment).toBe("dev")
         expect(DEFAULT_CONFIG.userEmail).toBeNull()
         expect(DEFAULT_CONFIG.gamesDir).toBeNull()
