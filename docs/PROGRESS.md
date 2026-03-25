@@ -42,18 +42,27 @@ All 7 work items done. 205 tests passing (81 new), typecheck clean.
 | 1B.6 | `crucible agent` command | Done | `51e3efa` | Interactive readline UX, edit summaries, Ctrl+C handling |
 | 1B.7 | Bundle VGF docs | Done | `51e3efa` | BUILDING_TV_GAMES.md bundled with loader utility |
 
-### Milestone 1C: Local Dev Server — COMPLETE
+### Milestone 1C: Local Dev Server — COMPLETE + REVIEWED
 
-All 4 work items done. 32 new tests.
+All 4 work items done. 32 new tests. Reviewed by `cursor-agent-2` and `cursor-agent-eqx`.
 
 | # | Work Item | Status | Commit | Notes |
 |---|-----------|--------|--------|-------|
-| 1C.1 | Port allocation (`dev/ports.ts`) | Done | `bef6f32` | Conflict detection, auto-increment, CRUCIBLE-403 |
+| 1C.1 | Port allocation (`dev/ports.ts`) | Done | `bef6f32` | Conflict detection, auto-increment, CRUCIBLE-403, intra-session dedup |
 | 1C.2 | Output multiplexer (`dev/output.ts`) | Done | `bef6f32` | Colour-coded prefixes, padded alignment |
-| 1C.3 | Process orchestrator (`dev/orchestrator.ts`) | Done | `bef6f32` | Parallel start, crash monitoring, graceful shutdown |
-| 1C.4 | `crucible dev` command | Done | `bef6f32` | Port overrides, signal handling, health URL output |
+| 1C.3 | Process orchestrator (`dev/orchestrator.ts`) | Done | `bef6f32` | Parallel start, readiness wait, crash monitoring, SIGTERM→SIGKILL shutdown |
+| 1C.4 | `crucible dev` command | Done | `bef6f32` | Port overrides, q-to-quit, signal handling, health URL output |
 
-### Milestone 1D: E2E Testing — PARTIAL
+**Review fixes applied:**
+- Startup readiness: waits for ready signals per process with 30s timeout (`ae3b5af`)
+- Two-phase graceful kill: SIGTERM → grace period → SIGKILL (`ae3b5af`)
+- `q`/`Q` keypress to quit in TTY mode (`ae3b5af`)
+- Port dedup: reserved set prevents intra-session collisions (`ae3b5af`)
+- CRUCIBLE-301 for game-not-found per §9.3 taxonomy (`bace1e7`)
+- Orphan repo cleanup on ruleset failure (`bace1e7`)
+- CRUCIBLE-202 uses gitError instead of templateError (`bace1e7`)
+
+### Milestone 1D: E2E Testing — PARTIAL + REVIEWED
 
 1D.2 and 1D.3 done. 1D.1 deferred (needs real game template for full lifecycle test).
 
