@@ -72,7 +72,17 @@ All 4 work items done. 32 new tests. Reviewed by `cursor-agent-2` and `cursor-ag
 | 1D.2 | Template snapshot tests | Done | `bef6f32` | Dockerfile, CI workflow, crucible.json snapshots |
 | 1D.3 | Agent integration tests | Done | `bef6f32` | Real filesystem + mocked Claude API, 9 tests |
 
-### Milestone 1E: hello-weekend Template Prep — NOT STARTED
+### Milestone 1E: hello-weekend Template Prep — COMPLETE
+
+Done in `hello-weekend` repo. VGF upgraded to 4.13.0, Platform SDK to 7.47.3.
+
+| # | Work Item | Status | Repo | Notes |
+|---|-----------|--------|------|-------|
+| 1E.1 | E2E test package (`apps/e2e/`) | Done | `hello-weekend` | Playwright, global-setup/teardown, serial execution |
+| 1E.2 | `data-*` test attributes | Done | `hello-weekend` | Phase/action/score attributes on display + controller |
+| 1E.3 | Template tokenisation audit | Done | `hello-weekend` | All references replaceable |
+
+**Pre-requisite upgrade:** VGF 4.13.0 + Platform SDK 7.47.3 (WGFServer, subpath imports, schedulerStore, index signature)
 
 ---
 
