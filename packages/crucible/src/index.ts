@@ -70,13 +70,24 @@ function createProgram(): Command {
     return program
 }
 
+/** Parse global flags from raw argv without requiring commander parse */
+function resolveGlobalOptionsFromArgv(): GlobalOptions {
+    const args = process.argv.slice(2)
+    return {
+        color: !args.includes("--no-color") && detectColorDefault(),
+        json: args.includes("--json"),
+        verbose: args.includes("--verbose") || args.includes("-v"),
+        quiet: args.includes("--quiet") || args.includes("-q"),
+    }
+}
+
 async function main(): Promise<void> {
     const program = createProgram()
 
-    // First-run detection
+    // First-run detection — use argv-based flag parsing (before commander parse)
     const configFile = getConfigFilePath()
     if (!existsSync(configFile) && process.argv.length <= 2) {
-        const opts = resolveGlobalOptions(program)
+        const opts = resolveGlobalOptionsFromArgv()
         if (opts.json) {
             console.log(JSON.stringify({ welcome: true, message: "Welcome to Crucible — build TV games with AI." }))
         } else {
@@ -96,8 +107,7 @@ async function main(): Promise<void> {
 
 main().catch((error: unknown) => {
     if (error instanceof CrucibleError) {
-        const program = createProgram()
-        const opts = resolveGlobalOptions(program)
+        const opts = resolveGlobalOptionsFromArgv()
         if (opts.json) {
             console.error(JSON.stringify({
                 error: true,

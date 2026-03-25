@@ -57,7 +57,11 @@ export async function cloneTemplate(
     } else {
         const simpleGit = (await import("simple-git")).default
         const git = simpleGit()
-        await git.clone(source.repo, targetPath, ["--depth", "1", "--branch", source.ref])
+        // Normalise owner/repo shorthand to full HTTPS URL
+        const repoUrl = source.repo.includes("://") || source.repo.includes("@")
+            ? source.repo
+            : `https://github.com/${source.repo}.git`
+        await git.clone(repoUrl, targetPath, ["--depth", "1", "--branch", source.ref])
         await rm(join(targetPath, ".git"), { recursive: true, force: true })
     }
 }
