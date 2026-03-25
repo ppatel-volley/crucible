@@ -14,7 +14,7 @@ import type {
 import { buildTokenMap, validateGameName } from "../template/index.js"
 import { cloneTemplate, replaceTokens, removeTemplateArtifacts } from "../template/index.js"
 import { generateDockerfile, generateCIWorkflow, generateCrucibleJson } from "../template/index.js"
-import { templateError, usageError, runProcess } from "../util/index.js"
+import { templateError, usageError, gitError, runProcess } from "../util/index.js"
 import { loadConfig } from "../config/index.js"
 import { resolvePaths } from "../config/index.js"
 import { createLogger } from "../util/index.js"
@@ -36,7 +36,7 @@ export function registerCreateCommand(program: Command): void {
         .command("create <display-name>")
         .description("Create a new TV game")
         .option("-d, --description <desc>", "Game description", "")
-        .option("--skip-github", "Skip GitHub repo creation", true)
+        .option("--skip-github", "Skip GitHub repo creation", false)
         .option("--skip-install", "Skip pnpm install", false)
         .action(async (displayName: string, opts: { description: string; skipGithub: boolean; skipInstall: boolean }) => {
             const paths = resolvePaths()
@@ -246,7 +246,7 @@ export async function executeCreate(
                     gitSpinner.succeed("Pushed to GitHub")
                 } catch (err) {
                     gitSpinner.fail("Failed to push to GitHub")
-                    throw templateError(
+                    throw gitError(
                         "CRUCIBLE-205",
                         "Failed to initialise git and push",
                         "Check your git configuration and network connection.",

@@ -1,7 +1,12 @@
 import type { CrucibleErrorOptions, ExitCode } from "../types.js"
 import { ExitCode as ExitCodes } from "../types.js"
 
-function categoryToExitCode(code: string): ExitCode {
+function categoryToExitCode(code: string, category: string): ExitCode {
+    // Category-based mapping takes precedence
+    if (category === "auth") return ExitCodes.AUTH_ERROR
+    if (category === "network") return ExitCodes.NETWORK_ERROR
+    if (category === "usage") return ExitCodes.USAGE_ERROR
+    // Fallback to code-range mapping
     const num = parseInt(code.replace("CRUCIBLE-", ""), 10)
     if (num >= 100 && num < 200) return ExitCodes.AUTH_ERROR
     if (num >= 400 && num < 500) return ExitCodes.NETWORK_ERROR
@@ -24,7 +29,7 @@ export class CrucibleError extends Error {
         this.shortName = options.shortName
         this.recovery = options.recovery
         this.retryable = options.retryable
-        this.exitCode = categoryToExitCode(options.code)
+        this.exitCode = categoryToExitCode(options.code, options.category)
         if (options.cause) {
             this.cause = options.cause
         }

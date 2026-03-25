@@ -6,6 +6,7 @@ import { homedir } from "node:os"
 import { join } from "node:path"
 import type { GlobalOptions } from "./types.js"
 import { registerCreateCommand } from "./commands/create.js"
+import { CrucibleError } from "./util/errors.js"
 
 export function resolveGlobalOptions(program: Command): GlobalOptions {
     const opts = program.opts()
@@ -93,34 +94,6 @@ async function main(): Promise<void> {
     await program.parseAsync(process.argv)
 }
 
-class CrucibleError extends Error {
-    code: string
-    category: string
-    shortName: string
-    recovery: string
-    retryable: boolean
-    exitCode: number
-
-    constructor(options: {
-        code: string
-        category: string
-        shortName: string
-        message: string
-        recovery: string
-        retryable: boolean
-        cause?: Error
-        exitCode?: number
-    }) {
-        super(options.message, { cause: options.cause })
-        this.code = options.code
-        this.category = options.category
-        this.shortName = options.shortName
-        this.recovery = options.recovery
-        this.retryable = options.retryable
-        this.exitCode = options.exitCode ?? 1
-    }
-}
-
 main().catch((error: unknown) => {
     if (error instanceof CrucibleError) {
         const program = createProgram()
@@ -157,4 +130,4 @@ main().catch((error: unknown) => {
     process.exit(1)
 })
 
-export { CrucibleError, createProgram }
+export { createProgram }

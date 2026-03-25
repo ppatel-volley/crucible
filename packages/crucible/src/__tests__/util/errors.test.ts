@@ -125,9 +125,10 @@ describe("factory functions", () => {
         expect(err.exitCode).toBe(ExitCode.GENERAL_ERROR)
     })
 
-    it("usageError sets category=usage", () => {
+    it("usageError sets category=usage and exitCode=USAGE_ERROR", () => {
         const err = usageError("CRUCIBLE-201", "Bad input", "Check --help")
         expect(err.category).toBe("usage")
+        expect(err.exitCode).toBe(ExitCode.USAGE_ERROR)
     })
 
     it("factory functions pass through cause", () => {
