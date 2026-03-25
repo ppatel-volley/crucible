@@ -57,8 +57,8 @@ Read `.agent-comms/protocol.md` for the full spec. Then determine which side you
 
 ### 3. Send a message (`/comms send <topic> <message>`)
 
-1. Generate a filename: `{YYYYMMDD}-{HHMM}-{your-agent-id}-{topic}.md`
-   - Your agent ID: `claude-code` if in Claude Code, `cursor-agent` if in Cursor, or whatever the user specifies.
+1. Generate a filename: `{YYYYMMDD}-{HHMMss}-{your-agent-id}-{topic}.md` (include seconds to avoid collisions)
+   - Your agent ID: `claude-code` if in Claude Code. External agents must use unique IDs (see protocol.md).
 2. Write the file to your **write directory** with this format:
 
 ```markdown

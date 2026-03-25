@@ -26,6 +26,11 @@ If `.agent-comms/` exists in this repo, you MUST:
 2. **After completing any task:** Check `.agent-comms/outbox/` for new pending messages before reporting "done".
 3. **After writing to `.agent-comms/inbox/`:** Tell the user the other agent needs to check comms.
 
+**CRITICAL — Avoid collisions:**
+- Do NOT use bare `cursor-agent` as your ID. Check existing `.agent-comms/inbox/` files and pick a unique ID (e.g. `cursor-agent-1`, `cursor-reviewer`, `cursor-builder`).
+- Include **seconds** in timestamps: `YYYYMMDD-HHMMss` (not just `HHMM`).
+- If your filename already exists, append a suffix (e.g. `-v2`).
+
 See `.agents/skills/comms.md` for the full protocol.
 
 ## Maintenance

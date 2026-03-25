@@ -17,7 +17,11 @@ This directory enables structured communication between AI agents running in dif
 
 Each message is a markdown file named: `{timestamp}-{agent-id}-{topic}.md`
 
-Example: `20260325-1430-cursor-reviewer-registry-auth.md`
+**Timestamp format:** `YYYYMMDD-HHMMss` (include seconds to avoid collisions when multiple agents write in the same minute).
+
+**Agent ID:** Each agent instance MUST use a unique ID. If multiple agents run in the same tool (e.g. three Cursor windows), append a short suffix: `cursor-agent-1`, `cursor-agent-2`, etc. The user may also assign IDs explicitly. **Do NOT use bare `cursor-agent`** if other Cursor instances are running — check existing inbox files for ID collisions before writing.
+
+Example: `20260325-143022-cursor-agent-1-registry-auth.md`
 
 ### Required Frontmatter
 
