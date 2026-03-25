@@ -1,0 +1,7 @@
+{
+  "name": "@hello-weekend/server",
+  "version": "0.1.0",
+  "dependencies": {
+    "@hello-weekend/shared": "workspace:*"
+  }
+}
