@@ -1,0 +1,124 @@
+name: Crucible Deploy
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment"
+        type: choice
+        options: [dev, staging, prod]
+        default: dev
+
+concurrency:
+  group: crucible-deploy-${{{{ github.ref }}}}
+  cancel-in-progress: false
+
+env:
+  ECR_REGISTRY: 375633680607.dkr.ecr.us-east-1.amazonaws.com
+  ECR_REPO: crucible-games
+
+jobs:
+  quality-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+        env:
+          NPM_TOKEN: ${{{{ secrets.NPM_TOKEN }}}}
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test -- --run
+      - name: Run E2E tests
+        run: pnpm --filter e2e test
+
+  build-and-deploy:
+    needs: quality-gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Read crucible.json
+        id: meta
+        run: |
+          echo "GAME_ID=$(jq -r .gameId crucible.json)" >> "$GITHUB_ENV"
+          echo "DISPLAY_NAME=$(jq -r .displayName crucible.json)" >> "$GITHUB_ENV"
+          echo "AUTHOR=$(jq -r .author crucible.json)" >> "$GITHUB_ENV"
+          echo "ENV=${{{{ inputs.environment || 'dev' }}}}" >> "$GITHUB_ENV"
+
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::375633680607:role/crucible-ci
+          aws-region: us-east-1
+          role-session-name: crucible-${{{{ env.GAME_ID }}}}-${{{{ github.run_number }}}}
+
+      - uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push Docker image
+        run: |
+          IMAGE_TAG="${{GAME_ID}}-${{{{ github.sha }}}}-${{{{ github.run_number }}}}"
+          echo "IMAGE_TAG=${{IMAGE_TAG}}" >> "$GITHUB_ENV"
+          docker build \
+            --secret id=npm_token,env=NPM_TOKEN \
+            -t "${{ECR_REGISTRY}}/${{ECR_REPO}}:${{IMAGE_TAG}}" .
+          docker push "${{ECR_REGISTRY}}/${{ECR_REPO}}:${{IMAGE_TAG}}"
+        env:
+          NPM_TOKEN: ${{{{ secrets.NPM_TOKEN }}}}
+          DOCKER_BUILDKIT: 1
+
+      - name: Trivy image scan
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: "${{{{ env.ECR_REGISTRY }}}}/${{{{ env.ECR_REPO }}}}:${{{{ env.IMAGE_TAG }}}}"
+          severity: CRITICAL,HIGH
+          exit-code: 1
+          ignore-unfixed: true
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+        env:
+          NPM_TOKEN: ${{{{ secrets.NPM_TOKEN }}}}
+
+      - name: Build and upload clients
+        run: |
+          pnpm --filter display build
+          pnpm --filter controller build
+          aws s3 sync apps/display/dist/ "s3://crucible-clients-${{ENV}}/${{GAME_ID}}/display/" --delete
+          aws s3 sync apps/controller/dist/ "s3://crucible-clients-${{ENV}}/${{GAME_ID}}/controller/" --delete
+
+      - name: Deploy
+        id: deploy
+        run: npx crucible-deploy apply --game "$GAME_ID" --image "${{ECR_REGISTRY}}/${{ECR_REPO}}:${{IMAGE_TAG}}" --env "$ENV"
+
+      - name: Verify
+        id: verify
+        run: npx crucible-deploy verify --game "$GAME_ID" --env "$ENV" --timeout 60
+
+      - name: Register
+        id: register
+        run: npx crucible-deploy register --game "$GAME_ID" --env "$ENV" --image "${{IMAGE_TAG}}" --display-name "$DISPLAY_NAME" --author "$AUTHOR"
+
+      - name: Compensating rollback
+        if: failure() && steps.deploy.outcome == 'success'
+        run: npx crucible-deploy rollback --game "$GAME_ID" --env "$ENV"
