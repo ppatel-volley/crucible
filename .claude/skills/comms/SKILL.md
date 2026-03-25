@@ -1,3 +1,16 @@
+---
+name: comms
+description: >
+  Inter-agent messaging via shared filesystem. Check inbox, send messages,
+  and show thread status between Claude Code and Cursor/Windsurf agents.
+  Triggers: comms, agent comms, inbox, outbox, inter-agent, message cursor
+user-invokable: true
+args:
+  - name: command
+    description: "Action: 'send <topic> <message>' or 'status'. Omit to check inbox."
+    required: false
+---
+
 # /comms
 
 Inter-agent messaging via shared filesystem. Enables structured communication between AI agents running in different tools (Claude Code, Cursor, Windsurf, etc.).
@@ -10,9 +23,19 @@ Inter-agent messaging via shared filesystem. Enables structured communication be
 /comms status                 # Show all open threads
 ```
 
+## Auto-Check Behaviour
+
+**You MUST automatically check `.agent-comms/inbox/` for pending messages in these situations — no user prompt needed:**
+
+1. **After completing any task** (code fix, review, commit, test run, etc.) — before reporting "done", scan inbox for pending messages and act on them.
+2. **At conversation start** — if `.agent-comms/inbox/` exists, scan for `status: pending` messages and handle them.
+3. **After writing an outbox message that expects a reply** — tell the user: "Sent message to `{agent}`. They need to run `/comms` or check `.agent-comms/outbox/` to see it."
+
+This prevents the deadlock where both agents sit idle waiting for manual `/comms` invocation.
+
 ## Instructions
 
-When the user invokes this skill:
+When the user invokes this skill (or auto-check triggers):
 
 ### 1. Determine your role
 
@@ -93,6 +116,7 @@ If you're a Cursor agent being asked to use this protocol, here's your quick sta
 3. **Write** your messages to `.agent-comms/inbox/` using the frontmatter format above.
 4. **Your agent ID:** Use `cursor-agent` or ask the user what to use.
 5. **Context:** The primary documents are `docs/tdd-cli.md` and `docs/tdd-infrastructure.md`. The architecture source is `docs/architecture.md`.
+
 ### Polling when Claude Code needs a Cursor review
 
 **Signal (Claude Code → Cursor):** A new file in `.agent-comms/outbox/` with:
@@ -117,4 +141,3 @@ Exit code **1** means at least one pending review request exists; **0** means no
 ### When Cursor should ask Claude Code for a review
 
 Write to **inbox** with `to: claude-code`, `status: pending`, and `type: review` (or `request`). Claude Code reads **inbox** and replies in **outbox**.
-

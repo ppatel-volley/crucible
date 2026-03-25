@@ -737,7 +737,7 @@ Format: `CRUCIBLE-XYY` where X = category, YY = specific error.
 | Build/CI | 5xx | 501: quality gate failed, 502: health check failed, 509: timeout |
 | Promote | 6xx | 601: no source version |
 | Rollback | 7xx | 701: no previous version, 703: version not found |
-| Template | 8xx | 801: template not found, 802: version mismatch |
+| Template | 8xx | 801: clone / template source failed, 802: remove template artefacts failed, 803: token replacement failed, 804: generated files failed, 805: `.npmrc` write failed, 806: `pnpm install` failed; 807: reserved for template version mismatch |
 
 **Every error follows this structure:**
 ```

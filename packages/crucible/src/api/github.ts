@@ -1,6 +1,6 @@
 import { Octokit } from "@octokit/rest"
 import type { CreateRepoOptions, CreateRepoResult } from "../types.js"
-import { authError, gitError, networkError } from "../util/errors.js"
+import { CrucibleError, authError, gitError, networkError } from "../util/errors.js"
 
 const PROTECTED_PATHS = [
     "Dockerfile",
@@ -72,8 +72,8 @@ export async function createGameRepo(octokit: Octokit, options: CreateRepoOption
             fullName: data.full_name,
         }
     } catch (err: unknown) {
-        if (err instanceof Error && "code" in err) {
-            throw err // Re-throw CrucibleErrors
+        if (err instanceof CrucibleError) {
+            throw err
         }
         throw networkError(
             "CRUCIBLE-401",

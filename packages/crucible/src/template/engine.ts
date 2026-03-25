@@ -15,6 +15,25 @@ const TEXT_EXTENSIONS = new Set([
     ".sh",
     ".css",
     ".svg",
+    ".env",
+    ".gitignore",
+    ".eslintrc",
+    ".prettierrc",
+])
+
+/** Files without extensions (or dot-prefixed) that should be treated as text */
+const EXTENSIONLESS_TEXT_FILES = new Set([
+    "Dockerfile",
+    "Makefile",
+    "LICENSE",
+    "Procfile",
+    ".env",
+    ".gitignore",
+    ".eslintrc",
+    ".prettierrc",
+    ".editorconfig",
+    ".nvmrc",
+    ".npmrc",
 ])
 
 const TEMPLATE_ARTIFACTS_DIRS = [
@@ -118,7 +137,8 @@ export async function replaceTokens(
     const allFiles = await walkDir(targetPath)
     for (const filePath of allFiles) {
         const ext = extname(filePath).toLowerCase()
-        if (!TEXT_EXTENSIONS.has(ext)) continue
+        const name = basename(filePath)
+        if (!TEXT_EXTENSIONS.has(ext) && !EXTENSIONLESS_TEXT_FILES.has(name)) continue
 
         const content = await readFile(filePath, "utf-8")
         let newContent = content

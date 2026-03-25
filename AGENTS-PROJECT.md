@@ -10,6 +10,8 @@
 Crucible is a Unity/Unreal-style project manager for building, testing, and publishing Volley TV games using AI agents. Users describe what they want in natural language, agents build it from the hello-weekend template, and the finished game appears on Proto-Hub.
 
 **Key documents:**
+- [`docs/PROGRESS.md`](./docs/PROGRESS.md) — **Read first.** Tracks completed milestones and work items so you don't re-scan the codebase.
+- [`docs/development-plan.md`](./docs/development-plan.md) — Full milestone definitions, work items, and dependencies
 - [`docs/architecture.md`](./docs/architecture.md) — Full architecture plan
 - [`docs/tdd-cli.md`](./docs/tdd-cli.md) — CLI Technical Design Document
 - [`docs/tdd-infrastructure.md`](./docs/tdd-infrastructure.md) — Infrastructure Technical Design Document

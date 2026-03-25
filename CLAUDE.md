@@ -9,9 +9,11 @@
 |------|---------------|-------|
 | Claude Code | `CLAUDE.md` (this file) | Automatic — no setup needed |
 | Cursor | `.cursorrules` | Included in this repo (mirrors this file) |
-| Windsurf | `.windsurfrules` | Copy `.cursorrules` to `.windsurfrules` |
+| Windsurf | `.windsurfrules` | Copy `.cursorrules` to `.windsurfrules` (not currently used) |
 
 ## Instructions
+
+**Before starting work**, read `docs/PROGRESS.md` to understand what's already been completed. Don't re-scan the codebase for things that file already tells you.
 
 Read and follow the guidelines in these files before starting any task:
 
@@ -24,6 +26,15 @@ These files contain mandatory requirements for code changes, testing, and verifi
 **Conditional reading (load only when needed):**
 - **[AGENTS-THREEJS.md](./AGENTS-THREEJS.md)** — Read ONLY for 3D/WebGL tasks using Three.js, shaders, or React Three Fiber.
 - **[AGENTS-RLM.md](./AGENTS-RLM.md)** — Read ONLY when context exceeds ~100K tokens or task requires processing most/all of a large input. Not needed for typical tasks.
+
+## Inter-Agent Comms (Auto-Check)
+
+If `.agent-comms/` exists in this repo, you MUST:
+1. **At conversation start:** Scan `.agent-comms/inbox/` for `status: pending` messages and act on them.
+2. **After completing any task:** Check `.agent-comms/inbox/` for new pending messages before reporting "done".
+3. **After writing to `.agent-comms/outbox/`:** Tell the user the other agent needs to check comms.
+
+See `.claude/skills/comms/SKILL.md` for the full protocol.
 
 ## Maintenance
 

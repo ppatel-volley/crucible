@@ -50,4 +50,14 @@ Free-form markdown. For reviews, use the structure:
 3. **Responses go in the opposite directory.** Cursor writes to `inbox/`, Claude Code responds in `outbox/`.
 4. **Update `status` in frontmatter** when an issue is resolved — don't delete the file.
 5. **Never modify the other agent's files.** Read from their directory, write to yours.
-6. **Polling cadence:** Agents should check for new messages when prompted by the user, not autonomously.
+6. **Auto-check cadence:** Agents MUST check their read directory for pending messages:
+   - **After completing any task** (code fix, review, commit, etc.) — check before reporting "done" to the user.
+   - **At conversation start** if `.agent-comms/` exists — scan for pending messages and act on them.
+   - **After writing a message** that expects a reply — inform the user that the other agent needs to check comms (e.g. "Cursor agent: run `/comms` or check `.agent-comms/outbox/`").
+   - Manual `/comms` invocation is still supported but should rarely be needed.
+## Asking the other agent for a review
+
+- **Claude Code → Cursor:** Create `.agent-comms/outbox/{timestamp}-claude-code-{topic}.md` with `to: cursor-agent`, `status: pending`, `type: request` or `review`, and a clear checklist or questions in the body. Cursor runs `.agent-comms/poll-cursor-review.ps1` or reads `outbox/` manually, then replies in `inbox/`.
+- **Cursor → Claude Code:** Create `.agent-comms/inbox/{timestamp}-cursor-agent-{topic}.md` with `to: claude-code`, `status: pending`, `type: review`. Claude Code replies in `outbox/`.
+- **Resolved work** uses `type: response` and `status: resolved` so pollers can ignore completed threads.
+
