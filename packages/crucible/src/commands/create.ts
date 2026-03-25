@@ -18,6 +18,8 @@ import { templateError, usageError, runProcess } from "../util/index.js"
 import { loadConfig } from "../config/index.js"
 import { resolvePaths } from "../config/index.js"
 import { createLogger } from "../util/index.js"
+import { getGitHubToken, createGitHubClient, createGameRepo, deleteGameRepo } from "../api/index.js"
+import { createGitOperations } from "../git/index.js"
 
 function resolveGlobalOpts(program: Command): GlobalOptions {
     const opts = program.opts()
@@ -61,7 +63,7 @@ export async function writeGeneratedFiles(gamePath: string, files: GeneratedFile
     }
 }
 
-type StepName = "clone" | "artifacts" | "tokens" | "generate" | "npmrc" | "install"
+type StepName = "clone" | "artifacts" | "tokens" | "generate" | "npmrc" | "install" | "github-repo" | "git-push"
 
 export async function executeCreate(
     options: CreateOptions,
@@ -214,9 +216,57 @@ export async function executeCreate(
             }
         }
 
+        // Step 7: GitHub repo creation (unless --skip-github)
+        let repoUrl: string | undefined
+        if (!options.skipGithub) {
+            const ghSpinner = logger.spinner("Creating GitHub repository...")
+            try {
+                const token = getGitHubToken()
+                const octokit = createGitHubClient(token)
+                const repoResult = await createGameRepo(octokit, {
+                    org: config.githubOrg,
+                    gameId: kebab,
+                    displayName: options.displayName,
+                    githubToken: token,
+                })
+                completedSteps.push("github-repo")
+                repoUrl = repoResult.htmlUrl
+                ghSpinner.succeed(`Created repo ${repoResult.fullName}`)
+
+                // Step 8: Git init, commit, push
+                const gitSpinner = logger.spinner("Initialising git and pushing...")
+                try {
+                    const git = createGitOperations()
+                    await git.init(gamePath)
+                    await git.add(gamePath, ["."])
+                    await git.commit(gamePath, "Initial scaffold from Crucible")
+                    await git.addRemote(gamePath, "origin", repoResult.cloneUrl)
+                    await git.push(gamePath, "origin", "main")
+                    completedSteps.push("git-push")
+                    gitSpinner.succeed("Pushed to GitHub")
+                } catch (err) {
+                    gitSpinner.fail("Failed to push to GitHub")
+                    throw templateError(
+                        "CRUCIBLE-205",
+                        "Failed to initialise git and push",
+                        "Check your git configuration and network connection.",
+                        { cause: err instanceof Error ? err : new Error(String(err)) },
+                    )
+                }
+            } catch (err) {
+                if (!completedSteps.includes("github-repo")) {
+                    ghSpinner.fail("Failed to create GitHub repository")
+                }
+                throw err
+            }
+        }
+
         // Success output
         logger.info("")
         logger.success(`Game created at ${gamePath}`)
+        if (repoUrl) {
+            logger.success(`GitHub repo: ${repoUrl}`)
+        }
         logger.info("")
         logger.info("Next steps:")
         logger.info(`  crucible agent ${kebab}     # Build your game with AI`)
@@ -226,19 +276,37 @@ export async function executeCreate(
         return {
             gamePath,
             gameId: kebab,
+            repoUrl,
         }
     } catch (err) {
         // Rollback on failure
-        await rollback(completedSteps, gamePath, logger)
+        await rollback(completedSteps, gamePath, logger, config, kebab)
         throw err
     }
 }
 
-async function rollback(completedSteps: StepName[], gamePath: string, logger: Logger): Promise<void> {
+async function rollback(completedSteps: StepName[], gamePath: string, logger: Logger, config?: CrucibleConfig, gameId?: string): Promise<void> {
     const reversed = [...completedSteps].reverse()
 
     for (const step of reversed) {
         switch (step) {
+            case "github-repo":
+                // Best-effort delete of the GitHub repo
+                try {
+                    const token = process.env.GITHUB_TOKEN
+                    if (token && config && gameId) {
+                        const octokit = createGitHubClient(token)
+                        const repoName = `crucible-game-${gameId}`
+                        await deleteGameRepo(octokit, config.githubOrg, repoName)
+                        logger.warn(`Rolled back: deleted GitHub repo ${config.githubOrg}/${repoName}`)
+                    }
+                } catch (rollbackErr) {
+                    logger.warn(`Rollback warning: failed to delete GitHub repo: ${rollbackErr instanceof Error ? rollbackErr.message : String(rollbackErr)}`)
+                }
+                break
+            case "git-push":
+                // Nothing to roll back — repo deletion handles this
+                break
             case "clone":
             case "artifacts":
             case "tokens":
