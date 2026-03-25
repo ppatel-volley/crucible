@@ -42,8 +42,27 @@ All 7 work items done. 205 tests passing (81 new), typecheck clean.
 | 1B.6 | `crucible agent` command | Done | `51e3efa` | Interactive readline UX, edit summaries, Ctrl+C handling |
 | 1B.7 | Bundle VGF docs | Done | `51e3efa` | BUILDING_TV_GAMES.md bundled with loader utility |
 
-### Milestone 1C: Local Dev Server — NOT STARTED
-### Milestone 1D: E2E Testing — NOT STARTED
+### Milestone 1C: Local Dev Server — COMPLETE
+
+All 4 work items done. 32 new tests.
+
+| # | Work Item | Status | Commit | Notes |
+|---|-----------|--------|--------|-------|
+| 1C.1 | Port allocation (`dev/ports.ts`) | Done | `bef6f32` | Conflict detection, auto-increment, CRUCIBLE-403 |
+| 1C.2 | Output multiplexer (`dev/output.ts`) | Done | `bef6f32` | Colour-coded prefixes, padded alignment |
+| 1C.3 | Process orchestrator (`dev/orchestrator.ts`) | Done | `bef6f32` | Parallel start, crash monitoring, graceful shutdown |
+| 1C.4 | `crucible dev` command | Done | `bef6f32` | Port overrides, signal handling, health URL output |
+
+### Milestone 1D: E2E Testing — PARTIAL
+
+1D.2 and 1D.3 done. 1D.1 deferred (needs real game template for full lifecycle test).
+
+| # | Work Item | Status | Commit | Notes |
+|---|-----------|--------|--------|-------|
+| 1D.1 | Platform E2E test harness | Deferred | — | Needs 1C.4 + real hello-weekend template |
+| 1D.2 | Template snapshot tests | Done | `bef6f32` | Dockerfile, CI workflow, crucible.json snapshots |
+| 1D.3 | Agent integration tests | Done | `bef6f32` | Real filesystem + mocked Claude API, 9 tests |
+
 ### Milestone 1E: hello-weekend Template Prep — NOT STARTED
 
 ---
