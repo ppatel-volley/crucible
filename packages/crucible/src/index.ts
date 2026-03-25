@@ -8,6 +8,13 @@ import type { GlobalOptions } from "./types.js"
 import { registerCreateCommand } from "./commands/create.js"
 import { registerAgentCommand } from "./commands/agent.js"
 import { registerDevCommand } from "./commands/dev.js"
+import { registerPublishCommand } from "./commands/publish.js"
+import { registerRollbackCommand } from "./commands/rollback.js"
+import { registerLogsCommand } from "./commands/logs.js"
+import { registerStatusCommand } from "./commands/status.js"
+import { registerListCommand } from "./commands/list.js"
+import { registerLoginCommand } from "./commands/login.js"
+import { registerPromoteCommand } from "./commands/promote.js"
 import { CrucibleError } from "./util/errors.js"
 
 export function resolveGlobalOptions(program: Command): GlobalOptions {
@@ -49,25 +56,13 @@ function createProgram(): Command {
     registerCreateCommand(program)
     registerAgentCommand(program)
     registerDevCommand(program)
-
-    const stubCommands = [
-        { name: "publish", description: "Publish game to registry" },
-        { name: "promote", description: "Promote game to next environment" },
-        { name: "rollback", description: "Rollback to a previous version" },
-        { name: "logs", description: "View game logs" },
-        { name: "status", description: "Check game status" },
-        { name: "list", description: "List games" },
-        { name: "login", description: "Authenticate with Crucible" },
-    ]
-
-    for (const cmd of stubCommands) {
-        program
-            .command(cmd.name)
-            .description(cmd.description)
-            .action(() => {
-                console.log("Not implemented yet")
-            })
-    }
+    registerPublishCommand(program)
+    registerRollbackCommand(program)
+    registerLogsCommand(program)
+    registerStatusCommand(program)
+    registerListCommand(program)
+    registerLoginCommand(program)
+    registerPromoteCommand(program)
 
     return program
 }
