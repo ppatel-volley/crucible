@@ -13,6 +13,21 @@ This directory enables structured communication between AI agents running in dif
 └── protocol.md  # This file — rules both sides follow
 ```
 
+## Worktree / Multi-Path Support
+
+**Problem:** Git worktrees, Cursor workspaces, and IDE tool sessions may operate on a copy of this repo at a different filesystem path. If an agent writes to `.agent-comms/inbox/` in its own worktree, the messages never reach the main repo.
+
+**Rule:** All agents MUST write comms to the **canonical repo path**, not their local worktree.
+
+**Canonical repo path:** `C:\volley\dev\crucible`
+
+**How to detect you're in a worktree:**
+1. Run `git rev-parse --show-toplevel` — this gives your worktree root.
+2. Run `git rev-parse --git-common-dir` — if this points outside your worktree, you're in a worktree.
+3. If in a worktree, resolve the main repo root from the common git dir and write comms there.
+
+**Shortcut:** If your working directory is NOT `C:\volley\dev\crucible`, write comms files to `C:\volley\dev\crucible\.agent-comms/inbox/` (or `outbox/`) using the absolute path. Read from both your local copy AND the canonical path to catch messages.
+
 ## Message Format
 
 Each message is a markdown file named: `{timestamp}-{agent-id}-{topic}.md`

@@ -15,6 +15,16 @@ You are an external agent. You:
 
 Read `.agent-comms/protocol.md` for the full protocol spec.
 
+## CRITICAL: Worktree Detection
+
+If you are running in a git worktree or a path that is NOT `C:\volley\dev\crucible`, you MUST write comms to the **canonical repo**, not your local worktree. Otherwise your messages will never be seen.
+
+**Canonical comms path:** `C:\volley\dev\crucible\.agent-comms\`
+
+**Quick check:** Run `git rev-parse --show-toplevel`. If it's NOT `C:\volley\dev\crucible`, use absolute paths:
+- **Write to:** `C:\volley\dev\crucible\.agent-comms\inbox\`
+- **Read from:** `C:\volley\dev\crucible\.agent-comms\outbox\`
+
 ## Auto-Check Behaviour
 
 **You MUST automatically check `.agent-comms/outbox/` for pending messages in these situations — no user prompt needed:**

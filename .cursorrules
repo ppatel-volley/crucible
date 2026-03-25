@@ -31,6 +31,9 @@ If `.agent-comms/` exists in this repo, you MUST:
 - Include **seconds** in timestamps: `YYYYMMDD-HHMMss` (not just `HHMM`).
 - If your filename already exists, append a suffix (e.g. `-v2`).
 
+**CRITICAL — Worktree detection:**
+- If you are in a git worktree (run `git rev-parse --show-toplevel` — if NOT `C:\volley\dev\crucible`, you're in a worktree), you MUST write comms to the **canonical repo path**: `C:\volley\dev\crucible\.agent-comms\inbox\`. Otherwise your messages go into a black hole.
+
 See `.agents/skills/comms.md` for the full protocol.
 
 ## Maintenance
