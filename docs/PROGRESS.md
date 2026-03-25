@@ -84,6 +84,20 @@ Done in `hello-weekend` repo. VGF upgraded to 4.13.0, Platform SDK to 7.47.3.
 
 **Pre-requisite upgrade:** VGF 4.13.0 + Platform SDK 7.47.3 (WGFServer, subpath imports, schedulerStore, index signature)
 
+### CLI Command Scaffolds — COMPLETE
+
+All 7 remaining commands scaffolded with proper option parsing and "not yet implemented" errors. No more stubs in index.ts.
+
+| Command | Options | Error Code | Blocked On |
+|---------|---------|------------|------------|
+| `crucible publish <game-id>` | `--timeout`, `--env` | CRUCIBLE-501 | Phase 2 (CI pipeline) |
+| `crucible rollback <game-id>` | `--to <version>`, `--env` | CRUCIBLE-701 | Phase 2 (Registry API) |
+| `crucible promote <game-id>` | `--from`, `--to`, `--confirm` | CRUCIBLE-601 | Phase 2 (Registry API) |
+| `crucible logs <game-id>` | `-f/--follow`, `--lines`, `--env` | CRUCIBLE-401 | Phase 2 (K8s access) |
+| `crucible status [game-id]` | `--env` | CRUCIBLE-401 | Phase 2 (Registry API) |
+| `crucible list` | `--env` | Working (local) | Registry lookup needs Phase 2 |
+| `crucible login` | `--device-code` | CRUCIBLE-101 | SSO config (see docs/human-actions.md) |
+
 ---
 
 ## Phase 2: Shared Infrastructure — BLOCKED
