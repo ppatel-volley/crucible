@@ -5,6 +5,7 @@ import { existsSync } from "node:fs"
 import { homedir } from "node:os"
 import { join } from "node:path"
 import type { GlobalOptions } from "./types.js"
+import { registerCreateCommand } from "./commands/create.js"
 
 export function resolveGlobalOptions(program: Command): GlobalOptions {
     const opts = program.opts()
@@ -42,12 +43,7 @@ function createProgram(): Command {
         .option("-v, --verbose", "Verbose output", false)
         .option("-q, --quiet", "Suppress non-essential output", false)
 
-    program
-        .command("create")
-        .description("Create a new TV game")
-        .action(() => {
-            console.log("Not implemented yet")
-        })
+    registerCreateCommand(program)
 
     const stubCommands = [
         { name: "agent", description: "AI agent for game development" },
