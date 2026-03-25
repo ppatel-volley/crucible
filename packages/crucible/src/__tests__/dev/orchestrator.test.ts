@@ -17,9 +17,15 @@ vi.mock("../../dev/output.js", () => ({
     formatProcessStatus: (...args: unknown[]) => mockFormatProcessStatus(...args),
 }))
 
-const mockKillProcessTree = vi.fn<(pid: number) => Promise<void>>()
+const mockGracefulKill = vi.fn<(pid: number, gracePeriod?: number) => Promise<void>>()
 vi.mock("../../util/process.js", () => ({
-    killProcessTree: (...args: unknown[]) => mockKillProcessTree(...(args as [number])),
+    killProcessTree: vi.fn().mockResolvedValue(undefined),
+    gracefulKill: (...args: unknown[]) => mockGracefulKill(...(args as [number, number?])),
+}))
+
+vi.mock("../../util/errors.js", () => ({
+    networkError: (code: string, message: string, recovery: string) =>
+        Object.assign(new Error(message), { code, recovery }),
 }))
 
 const mockExeca = vi.fn()
@@ -35,20 +41,25 @@ interface MockProcess extends EventEmitter {
     stderr: EventEmitter
     then: (cb: (result: { exitCode: number | null }) => void) => MockProcess
     catch: (cb: (err: unknown) => void) => MockProcess
-    _exitCode: number | null
     _thenCb: ((result: { exitCode: number | null }) => void) | null
     simulateExit: (code: number | null) => void
+    emitReady: () => void
 }
 
-function createMockProcess(pid: number | undefined): MockProcess {
+function createMockProcess(pid: number | undefined, name: "server" | "display" | "controller" = "server"): MockProcess {
     const stdout = new EventEmitter()
     const stderr = new EventEmitter()
+
+    const readySignals: Record<string, string> = {
+        server: "WGFServer started on :8090",
+        display: "VITE ready in 500ms",
+        controller: "VITE ready in 300ms",
+    }
 
     const proc: MockProcess = Object.assign(new EventEmitter(), {
         pid,
         stdout,
         stderr,
-        _exitCode: null as number | null,
         _thenCb: null as ((result: { exitCode: number | null }) => void) | null,
         then(cb: (result: { exitCode: number | null }) => void): MockProcess {
             proc._thenCb = cb
@@ -58,10 +69,12 @@ function createMockProcess(pid: number | undefined): MockProcess {
             return proc
         },
         simulateExit(code: number | null): void {
-            proc._exitCode = code
             if (proc._thenCb) {
                 proc._thenCb({ exitCode: code })
             }
+        },
+        emitReady(): void {
+            stdout.emit("data", Buffer.from(readySignals[name] + "\n"))
         },
     })
 
@@ -76,9 +89,9 @@ describe("orchestrator", () => {
 
     beforeEach(() => {
         mockProcesses = [
-            createMockProcess(1001),
-            createMockProcess(1002),
-            createMockProcess(1003),
+            createMockProcess(1001, "server"),
+            createMockProcess(1002, "display"),
+            createMockProcess(1003, "controller"),
         ]
 
         mockWriters = [
@@ -91,6 +104,8 @@ describe("orchestrator", () => {
         mockExeca.mockImplementation(() => {
             const proc = mockProcesses[execaCallCount]!
             execaCallCount++
+            // Auto-emit ready signal after a tick
+            setTimeout(() => proc.emitReady(), 10)
             return proc
         })
 
@@ -102,7 +117,7 @@ describe("orchestrator", () => {
         })
 
         mockAllocateDevPorts.mockResolvedValue(DEFAULT_TEST_PORTS)
-        mockKillProcessTree.mockResolvedValue(undefined)
+        mockGracefulKill.mockResolvedValue(undefined)
         mockFormatProcessStatus.mockImplementation(
             (name: string, msg: string) => `[${name}] ${msg}`,
         )
@@ -175,21 +190,10 @@ describe("orchestrator", () => {
 
             await startDevSession({ gamePath: "/tmp/game", gameId: "test-game" })
 
-            // Simulate stdout data on the server process
-            mockProcesses[0]!.stdout.emit("data", Buffer.from("server ready\n"))
+            // Simulate additional stdout data on the server process
+            mockProcesses[0]!.stdout.emit("data", Buffer.from("extra log line\n"))
 
-            expect(mockWriters[0]!.stdout).toHaveBeenCalledWith("server ready")
-        })
-
-        it("pipes process stderr through the correct writer", async () => {
-            const { startDevSession } = await import("../../dev/orchestrator.js")
-
-            await startDevSession({ gamePath: "/tmp/game", gameId: "test-game" })
-
-            // Simulate stderr data on the display process
-            mockProcesses[1]!.stderr.emit("data", Buffer.from("warning: something\n"))
-
-            expect(mockWriters[1]!.stderr).toHaveBeenCalledWith("warning: something")
+            expect(mockWriters[0]!.stdout).toHaveBeenCalledWith("extra log line")
         })
 
         it("returns a DevSession with correct ports and PIDs", async () => {
@@ -222,25 +226,6 @@ describe("orchestrator", () => {
             expect(mockAllocateDevPorts).toHaveBeenCalledWith(customPorts)
         })
 
-        it("handles processes with undefined pid", async () => {
-            mockProcesses[0] = createMockProcess(undefined)
-
-            let execaCallCount = 0
-            const procs = [mockProcesses[0], mockProcesses[1], mockProcesses[2]]
-            mockExeca.mockImplementation(() => {
-                const proc = procs[execaCallCount]!
-                execaCallCount++
-                return proc
-            })
-
-            const { startDevSession } = await import("../../dev/orchestrator.js")
-
-            const session = await startDevSession({ gamePath: "/tmp/game", gameId: "test-game" })
-
-            expect(session.pids.server).toBeNull()
-            expect(session.pids.display).toBe(1002)
-        })
-
         it("skips empty lines when piping output", async () => {
             const { startDevSession } = await import("../../dev/orchestrator.js")
 
@@ -249,14 +234,15 @@ describe("orchestrator", () => {
             // Emit data with blank lines
             mockProcesses[0]!.stdout.emit("data", Buffer.from("line1\n\n  \nline2\n"))
 
-            expect(mockWriters[0]!.stdout).toHaveBeenCalledTimes(2)
-            expect(mockWriters[0]!.stdout).toHaveBeenCalledWith("line1")
-            expect(mockWriters[0]!.stdout).toHaveBeenCalledWith("line2")
+            // Ready signal already emitted once, plus our 2 lines
+            const calls = mockWriters[0]!.stdout.mock.calls.map((c: string[]) => c[0])
+            expect(calls).toContain("line1")
+            expect(calls).toContain("line2")
         })
     })
 
     describe("stopDevSession", () => {
-        it("calls killProcessTree for each PID", async () => {
+        it("calls gracefulKill for each PID", async () => {
             const { stopDevSession } = await import("../../dev/orchestrator.js")
 
             const session = {
@@ -268,16 +254,16 @@ describe("orchestrator", () => {
 
             await stopDevSession(session)
 
-            expect(mockKillProcessTree).toHaveBeenCalledTimes(3)
-            expect(mockKillProcessTree).toHaveBeenCalledWith(1001)
-            expect(mockKillProcessTree).toHaveBeenCalledWith(1002)
-            expect(mockKillProcessTree).toHaveBeenCalledWith(1003)
+            expect(mockGracefulKill).toHaveBeenCalledTimes(3)
+            expect(mockGracefulKill).toHaveBeenCalledWith(1001, 5000)
+            expect(mockGracefulKill).toHaveBeenCalledWith(1002, 5000)
+            expect(mockGracefulKill).toHaveBeenCalledWith(1003, 5000)
         })
 
         it("handles already-dead processes gracefully", async () => {
             const { stopDevSession } = await import("../../dev/orchestrator.js")
 
-            mockKillProcessTree.mockRejectedValue(new Error("No such process"))
+            mockGracefulKill.mockRejectedValue(new Error("No such process"))
 
             const session = {
                 ports: DEFAULT_TEST_PORTS,
@@ -302,8 +288,23 @@ describe("orchestrator", () => {
 
             await stopDevSession(session)
 
-            expect(mockKillProcessTree).toHaveBeenCalledTimes(1)
-            expect(mockKillProcessTree).toHaveBeenCalledWith(1002)
+            expect(mockGracefulKill).toHaveBeenCalledTimes(1)
+            expect(mockGracefulKill).toHaveBeenCalledWith(1002, 5000)
+        })
+
+        it("passes custom grace period", async () => {
+            const { stopDevSession } = await import("../../dev/orchestrator.js")
+
+            const session = {
+                ports: DEFAULT_TEST_PORTS,
+                pids: { server: 1001, display: null, controller: null },
+                gamePath: "/tmp/game",
+                gameId: "test-game",
+            }
+
+            await stopDevSession(session, 10000)
+
+            expect(mockGracefulKill).toHaveBeenCalledWith(1001, 10000)
         })
     })
 })

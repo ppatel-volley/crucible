@@ -64,14 +64,28 @@ export async function runDevCommand(
     logger.info(`  Controller: http://127.0.0.1:${session.ports.controller}`)
     logger.info(`  Health:     http://127.0.0.1:${session.ports.server}/${gameId}/health`)
     logger.info("")
-    logger.info("Press Ctrl+C to stop.")
+    logger.info("Press q or Ctrl+C to stop.")
 
-    // Setup signal handlers for graceful shutdown
-    setupSignalHandlers(async () => {
+    const shutdown = async (): Promise<void> => {
         logger.info("Shutting down...")
         await stopDevSession(session)
-    })
+    }
 
-    // Keep process alive — wait forever (until signal)
+    // Setup signal handlers for graceful shutdown
+    setupSignalHandlers(shutdown)
+
+    // Setup q key listener (TTY only)
+    if (process.stdin.isTTY) {
+        process.stdin.setRawMode(true)
+        process.stdin.resume()
+        process.stdin.on("data", (data: Buffer) => {
+            const key = String(data)
+            if (key === "q" || key === "Q") {
+                shutdown().then(() => process.exit(0)).catch(() => process.exit(1))
+            }
+        })
+    }
+
+    // Keep process alive — wait forever (until signal or q)
     await new Promise(() => {})
 }

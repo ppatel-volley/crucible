@@ -79,9 +79,9 @@ export function setupSignalHandlers(cleanup: () => Promise<void>): void {
     process.on("SIGTERM", () => handler("SIGTERM"))
 }
 
-export async function killProcessTree(pid: number): Promise<void> {
+export async function killProcessTree(pid: number, signal: string = "SIGTERM"): Promise<void> {
     return new Promise<void>((resolve, reject) => {
-        treeKill(pid, "SIGTERM", (err?: Error) => {
+        treeKill(pid, signal, (err?: Error) => {
             if (err) {
                 reject(err)
             } else {
@@ -89,4 +89,30 @@ export async function killProcessTree(pid: number): Promise<void> {
             }
         })
     })
+}
+
+/**
+ * Two-phase kill: SIGTERM → grace period → SIGKILL.
+ */
+export async function gracefulKill(pid: number, gracePeriod: number = 5000): Promise<void> {
+    await killProcessTree(pid, "SIGTERM").catch(() => {})
+
+    // Wait for grace period, then force kill
+    const isAlive = (): boolean => {
+        try {
+            process.kill(pid, 0)
+            return true
+        } catch {
+            return false
+        }
+    }
+
+    const deadline = Date.now() + gracePeriod
+    while (Date.now() < deadline && isAlive()) {
+        await new Promise((r) => setTimeout(r, 200))
+    }
+
+    if (isAlive()) {
+        await killProcessTree(pid, "SIGKILL").catch(() => {})
+    }
 }

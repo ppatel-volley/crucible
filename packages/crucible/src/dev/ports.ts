@@ -19,12 +19,15 @@ export async function isPortAvailable(port: number): Promise<boolean> {
 
 /**
  * Find the next available port starting from `start`, up to `start + maxOffset`.
+ * Skips ports in the `reserved` set (already assigned in this session).
  * Throws CRUCIBLE-403 if all ports exhausted.
  */
-export async function findAvailablePort(start: number, maxOffset: number = 100): Promise<number> {
+export async function findAvailablePort(start: number, maxOffset: number = 100, reserved: Set<number> = new Set()): Promise<number> {
     for (let offset = 0; offset <= maxOffset; offset++) {
-        if (await isPortAvailable(start + offset)) {
-            return start + offset
+        const port = start + offset
+        if (reserved.has(port)) continue
+        if (await isPortAvailable(port)) {
+            return port
         }
     }
     throw networkError(
@@ -36,12 +39,19 @@ export async function findAvailablePort(start: number, maxOffset: number = 100):
 
 /**
  * Allocate ports for all three dev processes.
+ * Tracks assigned ports to prevent intra-session collisions.
  */
 export async function allocateDevPorts(defaults?: Partial<DevPorts>): Promise<DevPorts> {
     const base = { ...DEFAULT_PORTS, ...defaults }
-    return {
-        server: await findAvailablePort(base.server),
-        display: await findAvailablePort(base.display),
-        controller: await findAvailablePort(base.controller),
-    }
+    const reserved = new Set<number>()
+
+    const server = await findAvailablePort(base.server, 100, reserved)
+    reserved.add(server)
+
+    const display = await findAvailablePort(base.display, 100, reserved)
+    reserved.add(display)
+
+    const controller = await findAvailablePort(base.controller, 100, reserved)
+
+    return { server, display, controller }
 }

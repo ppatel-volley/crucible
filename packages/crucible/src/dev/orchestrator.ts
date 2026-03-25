@@ -3,13 +3,62 @@ import { execa, type ResultPromise } from "execa"
 import type { DevProcessName, DevSession, OrchestratorOptions } from "../types.js"
 import { allocateDevPorts } from "./ports.js"
 import { createProcessWriter, formatProcessStatus } from "./output.js"
-import { killProcessTree } from "../util/process.js"
+import { gracefulKill } from "../util/process.js"
+import { networkError } from "../util/errors.js"
+
+const READY_SIGNALS: Record<DevProcessName, RegExp> = {
+    server: /started on|listening on|ready/i,
+    display: /ready in|Local:|VITE/i,
+    controller: /ready in|Local:|VITE/i,
+}
+
+/**
+ * Wait for a process to emit a ready signal or timeout.
+ */
+function waitForReady(
+    proc: ResultPromise,
+    name: DevProcessName,
+    timeout: number,
+): Promise<void> {
+    return new Promise((resolve, reject) => {
+        const timer = setTimeout(() => {
+            reject(
+                networkError(
+                    "CRUCIBLE-404",
+                    `Process "${name}" did not become ready within ${timeout / 1000}s`,
+                    "Check the process logs above for errors.",
+                ),
+            )
+        }, timeout)
+
+        const pattern = READY_SIGNALS[name]
+
+        const checkLine = (data: Buffer | string): void => {
+            if (pattern.test(String(data))) {
+                clearTimeout(timer)
+                resolve()
+            }
+        }
+
+        proc.stdout?.on("data", checkLine)
+        proc.stderr?.on("data", checkLine)
+
+        // Also resolve if process exits (crash will be caught separately)
+        proc.then(() => {
+            clearTimeout(timer)
+            resolve()
+        })
+    })
+}
 
 /**
  * Start a local dev session with three child processes: server, display, controller.
  * Processes are started in parallel and monitored for crashes.
  */
 export async function startDevSession(options: OrchestratorOptions): Promise<DevSession> {
+    const startupTimeout = options.startupTimeout ?? 30000
+    const gracePeriod = options.shutdownGracePeriod ?? 5000
+
     // 1. Allocate ports
     const ports = await allocateDevPorts(options.ports)
 
@@ -61,12 +110,24 @@ export async function startDevSession(options: OrchestratorOptions): Promise<Dev
         proc.then((result) => {
             if (result.exitCode !== 0 && result.exitCode !== null) {
                 console.error(formatProcessStatus(config.name, `crashed with exit code ${result.exitCode}`))
-                // Kill remaining processes
-                stopAllProcesses(processes, options.shutdownGracePeriod ?? 5000)
+                stopAllProcesses(processes, gracePeriod)
             }
         })
 
         processes.set(config.name, proc)
+    }
+
+    // 3. Wait for all processes to be ready (with timeout)
+    try {
+        await Promise.all(
+            [...processes.entries()].map(([name, proc]) =>
+                waitForReady(proc, name, startupTimeout),
+            ),
+        )
+    } catch (err) {
+        // Startup failed — kill everything
+        await stopAllProcesses(processes, gracePeriod)
+        throw err
     }
 
     return { ports, pids, gamePath: options.gamePath, gameId: options.gameId }
@@ -74,16 +135,13 @@ export async function startDevSession(options: OrchestratorOptions): Promise<Dev
 
 /**
  * Stop all running processes in a dev session gracefully.
+ * Uses two-phase kill: SIGTERM → grace period → SIGKILL.
  */
-export async function stopDevSession(session: DevSession, _gracePeriod: number = 5000): Promise<void> {
+export async function stopDevSession(session: DevSession, gracePeriod: number = 5000): Promise<void> {
     const killPromises: Promise<void>[] = []
     for (const [, pid] of Object.entries(session.pids)) {
         if (pid) {
-            killPromises.push(
-                killProcessTree(pid).catch(() => {
-                    // Process may already be dead
-                }),
-            )
+            killPromises.push(gracefulKill(pid, gracePeriod).catch(() => {}))
         }
     }
     await Promise.allSettled(killPromises)
@@ -92,10 +150,10 @@ export async function stopDevSession(session: DevSession, _gracePeriod: number =
 /**
  * Internal helper to stop all tracked processes.
  */
-async function stopAllProcesses(processes: Map<DevProcessName, ResultPromise>, _gracePeriod: number): Promise<void> {
+async function stopAllProcesses(processes: Map<DevProcessName, ResultPromise>, gracePeriod: number): Promise<void> {
     for (const [, proc] of processes) {
         if (proc.pid) {
-            await killProcessTree(proc.pid).catch(() => {})
+            await gracefulKill(proc.pid, gracePeriod).catch(() => {})
         }
     }
 }
