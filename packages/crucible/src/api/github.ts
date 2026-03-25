@@ -64,7 +64,13 @@ export async function createGameRepo(octokit: Octokit, options: CreateRepoOption
             auto_init: false,
         })
 
-        await applyProtectionRulesets(octokit, options.org, repoName)
+        try {
+            await applyProtectionRulesets(octokit, options.org, repoName)
+        } catch (rulesetErr) {
+            // Ruleset failed after repo creation — clean up the orphan repo
+            await octokit.repos.delete({ owner: options.org, repo: repoName }).catch(() => {})
+            throw rulesetErr
+        }
 
         return {
             cloneUrl: data.clone_url,

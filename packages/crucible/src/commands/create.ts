@@ -90,7 +90,7 @@ export async function executeCreate(
 
     // Check target directory doesn't exist
     if (existsSync(gamePath)) {
-        throw templateError(
+        throw gitError(
             "CRUCIBLE-202",
             `Directory already exists: ${gamePath}`,
             `Remove the existing directory or choose a different game name.`,

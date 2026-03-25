@@ -38,7 +38,7 @@ export async function runDevCommand(
         await stat(gamePath)
     } catch {
         throw usageError(
-            "CRUCIBLE-200",
+            "CRUCIBLE-301",
             `Game "${gameId}" not found at ${gamePath}`,
             "Run `crucible create` first or check the game ID.",
         )
