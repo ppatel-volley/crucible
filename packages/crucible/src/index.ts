@@ -7,6 +7,7 @@ import { join } from "node:path"
 import type { GlobalOptions } from "./types.js"
 import { registerCreateCommand } from "./commands/create.js"
 import { registerAgentCommand } from "./commands/agent.js"
+import { registerDevCommand } from "./commands/dev.js"
 import { CrucibleError } from "./util/errors.js"
 
 export function resolveGlobalOptions(program: Command): GlobalOptions {
@@ -47,9 +48,9 @@ function createProgram(): Command {
 
     registerCreateCommand(program)
     registerAgentCommand(program)
+    registerDevCommand(program)
 
     const stubCommands = [
-        { name: "dev", description: "Start local development server" },
         { name: "publish", description: "Publish game to registry" },
         { name: "promote", description: "Promote game to next environment" },
         { name: "rollback", description: "Rollback to a previous version" },

@@ -231,6 +231,38 @@ export interface AgentSession {
     }
 }
 
+// === Dev Server Ports ===
+export interface DevPorts {
+    server: number
+    display: number
+    controller: number
+}
+
+export const DEFAULT_PORTS: DevPorts = {
+    server: 8090,
+    display: 3000,
+    controller: 5174,
+}
+
+// === Dev Output ===
+export type DevProcessName = "server" | "display" | "controller"
+
+// === Dev Orchestrator ===
+export interface DevSession {
+    ports: DevPorts
+    pids: Record<DevProcessName, number | null>
+    gamePath: string
+    gameId: string
+}
+
+export interface OrchestratorOptions {
+    gamePath: string
+    gameId: string
+    ports?: Partial<DevPorts>
+    startupTimeout?: number // default: 30000 (30s)
+    shutdownGracePeriod?: number // default: 5000 (5s)
+}
+
 // === Global CLI Options ===
 export interface GlobalOptions {
     color: boolean
