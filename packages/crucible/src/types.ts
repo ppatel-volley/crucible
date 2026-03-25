@@ -146,6 +146,91 @@ export interface CreateResult {
     repoUrl?: string
 }
 
+// === Agent Context ===
+export type ContextPriority = "required" | "high" | "medium" | "low" | "reference"
+
+export interface ContextFile {
+    path: string
+    content: string
+    tokens: number
+    priority: ContextPriority
+}
+
+export interface AssembledContext {
+    files: ContextFile[]
+    totalTokens: number
+    truncated: boolean
+    missedFiles: string[]
+}
+
+export interface ContextAssemblerOptions {
+    gamePath: string
+    tokenBudget?: number // default: 180_000
+    loadVGFDocs?: boolean // default: false — only on-demand
+}
+
+// === File Restrictions ===
+export interface FileRestrictionResult {
+    allowed: boolean
+    reason?: string
+    deniedPattern?: string
+}
+
+export interface FileRestrictionViolation {
+    path: string
+    reason: "denied-pattern" | "not-allowed"
+    deniedPattern?: string
+    timestamp: string
+    sessionId: string
+    userEmail?: string
+}
+
+// === Claude API ===
+export interface ClaudeClientOptions {
+    apiKey: string
+    model?: string // default: "claude-sonnet-4-20250514"
+    maxTokens?: number // default: 16384
+}
+
+export interface ClaudeToolResult {
+    type: "tool_result"
+    tool_use_id: string
+    content: string
+    is_error?: boolean
+}
+
+// === Agent Runner ===
+export interface AgentRunnerOptions {
+    gamePath: string
+    gameId: string
+    sessionId: string
+    apiKey: string
+    model?: string
+    context: AssembledContext
+}
+
+export interface AgentTurnResult {
+    response: string
+    filesModified: string[]
+    commitSha?: string
+    tokenUsage: { inputTokens: number; outputTokens: number }
+    stopReason: string
+}
+
+// === Agent Session ===
+export interface AgentSession {
+    sessionId: string
+    gameId: string
+    gamePath: string
+    createdAt: string // ISO 8601
+    lastActiveAt: string // ISO 8601
+    messages: Array<{ role: "user" | "assistant"; content: string }>
+    tokenUsage: {
+        inputTokens: number
+        outputTokens: number
+    }
+}
+
 // === Global CLI Options ===
 export interface GlobalOptions {
     color: boolean

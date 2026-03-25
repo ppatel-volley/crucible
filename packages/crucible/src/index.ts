@@ -6,6 +6,7 @@ import { homedir } from "node:os"
 import { join } from "node:path"
 import type { GlobalOptions } from "./types.js"
 import { registerCreateCommand } from "./commands/create.js"
+import { registerAgentCommand } from "./commands/agent.js"
 import { CrucibleError } from "./util/errors.js"
 
 export function resolveGlobalOptions(program: Command): GlobalOptions {
@@ -45,9 +46,9 @@ function createProgram(): Command {
         .option("-q, --quiet", "Suppress non-essential output", false)
 
     registerCreateCommand(program)
+    registerAgentCommand(program)
 
     const stubCommands = [
-        { name: "agent", description: "AI agent for game development" },
         { name: "dev", description: "Start local development server" },
         { name: "publish", description: "Publish game to registry" },
         { name: "promote", description: "Promote game to next environment" },
