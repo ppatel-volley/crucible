@@ -100,11 +100,11 @@ All 7 remaining commands scaffolded with proper option parsing and "not yet impl
 
 ---
 
-## Phase 2: Shared Infrastructure — BLOCKED
+## Phase 2: Shared Infrastructure — PARTIALLY UNBLOCKED
 
-Blocked by human actions: AWS access, K8s admin, DNS, SSO provider setup.
+CrucibleAdmin SSO permission set merged (`volley-infra` PR #2094). Pratik can now create ECR, S3, DynamoDB, CloudFront, API Gateway, and Lambda resources. IAM roles/OIDC provider still need a Terraform follow-up PR.
 
-### Milestone 2A: AWS Resources — BLOCKED (needs AWS access)
+### Milestone 2A: AWS Resources — UNBLOCKED (CrucibleAdmin permission set active)
 ### Milestone 2B: Kubernetes Resources — BLOCKED (needs K8s admin)
 ### Milestone 2C: Registry API — NOT STARTED (depends on 2A)
 ### Milestone 2D: Supporting Infrastructure — NOT STARTED (depends on 2A, 2B)
