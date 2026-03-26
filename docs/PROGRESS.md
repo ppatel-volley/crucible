@@ -84,25 +84,35 @@ Done in `hello-weekend` repo. VGF upgraded to 4.13.0, Platform SDK to 7.47.3.
 
 **Pre-requisite upgrade:** VGF 4.13.0 + Platform SDK 7.47.3 (WGFServer, subpath imports, schedulerStore, index signature)
 
-### CLI Command Scaffolds — COMPLETE
+### CLI Command Scaffolds + Implementations — COMPLETE
 
-All 7 remaining commands scaffolded with proper option parsing and "not yet implemented" errors. No more stubs in index.ts.
+All 7 remaining commands scaffolded. Some have real logic implemented beyond the scaffold.
 
-| Command | Options | Error Code | Blocked On |
-|---------|---------|------------|------------|
-| `crucible publish <game-id>` | `--timeout`, `--env` | CRUCIBLE-501 | Phase 2 (CI pipeline) |
-| `crucible rollback <game-id>` | `--to <version>`, `--env` | CRUCIBLE-701 | Phase 2 (Registry API) |
-| `crucible promote <game-id>` | `--from`, `--to`, `--confirm` | CRUCIBLE-601 | Phase 2 (Registry API) |
-| `crucible logs <game-id>` | `-f/--follow`, `--lines`, `--env` | CRUCIBLE-401 | Phase 2 (K8s access) |
-| `crucible status [game-id]` | `--env` | CRUCIBLE-401 | Phase 2 (Registry API) |
-| `crucible list` | `--env` | Working (local) | Registry lookup needs Phase 2 |
-| `crucible login` | `--device-code` | CRUCIBLE-101 | SSO config (see docs/human-actions.md) |
+| Command | Options | Status | Blocked On |
+|---------|---------|--------|------------|
+| `crucible publish <game-id>` | `--timeout`, `--env` | **Pre-flight checks working** (git clean, checksum, crucible.json, remote). CI polling not yet. | Phase 2 (CI pipeline) |
+| `crucible rollback <game-id>` | `--to <version>`, `--env` | Scaffold only (CRUCIBLE-701) | Phase 2 (Registry API) |
+| `crucible promote <game-id>` | `--from`, `--to`, `--confirm` | Scaffold only (CRUCIBLE-601) | Phase 2 (Registry API) |
+| `crucible logs <game-id>` | `-f/--follow`, `--lines`, `--env` | Scaffold only (CRUCIBLE-401) | Phase 2 (K8s access) |
+| `crucible status [game-id]` | `--env` | Scaffold only (CRUCIBLE-401) | Phase 2 (Registry API) |
+| `crucible list` | `--env` | **Working** — formatted table with crucible.json parsing, relative timestamps | Registry lookup needs Phase 2 |
+| `crucible login` | `--device-code` | **OIDC infrastructure built** — PKCE, callback server, token store. Needs SSO config. | SSO config (see docs/human-actions.md) |
+
+### Auth Infrastructure — COMPLETE
+
+OIDC login flow built and ready for SSO config values.
+
+| Module | File | Tests | Notes |
+|--------|------|-------|-------|
+| PKCE utilities | `auth/oidc.ts` | 9 | Code verifier, challenge, state, auth URL builder, token exchange |
+| Callback server | `auth/server.ts` | — | Ephemeral HTTP server on 127.0.0.1:0 for OAuth redirect |
+| Token store | `auth/token-store.ts` | 8 | File-based, 5-min-before-expiry refresh, save/load/clear |
 
 ---
 
 ## Phase 2: Shared Infrastructure — PARTIALLY UNBLOCKED
 
-CrucibleAdmin SSO permission set merged (`volley-infra` PR #2094). Pratik can now create ECR, S3, DynamoDB, CloudFront, API Gateway, and Lambda resources. IAM roles/OIDC provider still need a Terraform follow-up PR.
+CrucibleAdmin SSO permission set merged (`volley-infra` PR #2094). `crucible-ci` IAM role created via Terraform (`volley-infra` PR #2096, applied). AWS resources provisioned. K8s tenant onboarding in progress.
 
 ### Milestone 2A: AWS Resources — IN PROGRESS
 
@@ -114,7 +124,7 @@ CrucibleAdmin SSO permission set merged (`volley-infra` PR #2094). Pratik can no
 | S3 `crucible-clients-prod` | Done | us-east-1, versioning enabled |
 | DynamoDB `crucible-catalog` | Done | PITR on, TTL on expiresAt, GSI author-index |
 | DynamoDB `crucible-versions` | Done | PITR on, TTL on expiresAt |
-| `crucible-ci` IAM role | PR open | volley-infra PR #2096 — OIDC role for GitHub Actions |
+| `crucible-ci` IAM role | **Done** | volley-infra PR #2096 — applied via Atlantis |
 | CloudFront distributions | Deferred | Not needed until production — dev uses S3 URLs |
 | GitHub OIDC provider | Already exists | Shared org-wide resource in volley-infra |
 ### Milestone 2B: Kubernetes Resources — IN PROGRESS
@@ -138,3 +148,32 @@ CrucibleAdmin SSO permission set merged (`volley-infra` PR #2094). Pratik can no
 ## Phase 3–6: Not Started
 
 Depends on Phases 1 and 2. See `docs/development-plan.md`.
+
+---
+
+## Overall Stats
+
+- **Total tests:** 308 (36 test files)
+- **Typecheck:** Clean
+- **All commands registered:** No stubs remaining in index.ts
+
+## Documentation
+
+| Document | Purpose |
+|----------|---------|
+| `docs/user-guide.md` | End-user guide for all CLI commands |
+| `docs/human-actions.md` | Infrastructure setup steps for humans (ELI5) |
+| `docs/PROGRESS.md` | This file — tracks completed work |
+| `docs/development-plan.md` | Full milestone definitions and dependencies |
+| `docs/tdd-cli.md` | CLI Technical Design Document |
+| `docs/tdd-infrastructure.md` | Infrastructure Technical Design Document |
+| `docs/architecture.md` | Full architecture plan |
+
+## Open PRs (Cross-Repo)
+
+| PR | Repo | What | Status |
+|----|------|------|--------|
+| ~~#2094~~ | volley-infra | CrucibleAdmin SSO permission set | **Merged** |
+| ~~#2096~~ | volley-infra | crucible-ci IAM role | **Merged + Applied** |
+| #866 | kubernetes | crucible-dev namespace + Flux sync | Ready to merge |
+| #4273 | volley-infra-tenants | crucible dev HelmRelease config | Ready to merge (after #866) |

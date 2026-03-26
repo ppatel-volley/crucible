@@ -570,7 +570,7 @@ Someone (or something) modified the Dockerfile directly. The Dockerfile is manag
 | `crucible dev` | Working |
 | `crucible list` | Working |
 | `crucible publish` | Pre-flight checks only. CI integration coming in Phase 2. |
-| `crucible login` | Needs SSO configuration. See `docs/human-actions.md`. |
+| `crucible login` | OIDC flow built (PKCE, callback server, token store). Needs SSO config values. |
 | `crucible rollback` | Coming in Phase 2 |
 | `crucible promote` | Coming in Phase 2 |
 | `crucible logs` | Coming in Phase 2 |
