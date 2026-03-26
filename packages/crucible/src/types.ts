@@ -114,6 +114,7 @@ export interface GitOperations {
     addRemote(path: string, name: string, url: string): Promise<void>
     getHeadSha(path: string): Promise<string>
     isClean(path: string): Promise<boolean>
+    hasRemote(path: string, name: string): Promise<boolean>
 }
 
 // === GitHub API ===
@@ -261,6 +262,21 @@ export interface OrchestratorOptions {
     ports?: Partial<DevPorts>
     startupTimeout?: number // default: 30000 (30s)
     shutdownGracePeriod?: number // default: 5000 (5s)
+}
+
+// === Auth / OIDC ===
+export interface OIDCConfig {
+    issuer: string
+    clientId: string
+    deviceAuthEndpoint?: string
+}
+
+export interface TokenSet {
+    accessToken: string
+    refreshToken?: string
+    idToken?: string
+    expiresAt: number // Unix timestamp in ms
+    email?: string
 }
 
 // === Global CLI Options ===

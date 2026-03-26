@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest"
+import { describe, it, expect, beforeEach, afterEach } from "vitest"
 import { Command } from "commander"
 import { registerLoginCommand, runLoginCommand } from "../../commands/login.js"
 import { CrucibleError } from "../../util/errors.js"
@@ -18,21 +18,32 @@ describe("registerLoginCommand", () => {
 })
 
 describe("runLoginCommand", () => {
-    it("default mode throws CRUCIBLE-101 with browser login message", async () => {
+    const originalEnv = { ...process.env }
+
+    beforeEach(() => {
+        delete process.env.CRUCIBLE_OIDC_ISSUER
+        delete process.env.CRUCIBLE_OIDC_CLIENT_ID
+    })
+
+    afterEach(() => {
+        process.env = { ...originalEnv }
+    })
+
+    it("throws CRUCIBLE-101 when SSO is not configured (browser mode)", async () => {
         await expect(runLoginCommand({ deviceCode: false })).rejects.toThrow(CrucibleError)
         await expect(runLoginCommand({ deviceCode: false })).rejects.toThrow(
-            /Browser login is not yet implemented/,
+            /SSO is not configured/,
         )
     })
 
-    it("--device-code mode throws CRUCIBLE-101 with device code message", async () => {
+    it("throws CRUCIBLE-101 when SSO is not configured (device-code mode)", async () => {
         await expect(runLoginCommand({ deviceCode: true })).rejects.toThrow(CrucibleError)
         await expect(runLoginCommand({ deviceCode: true })).rejects.toThrow(
-            /Device code login is not yet implemented/,
+            /SSO is not configured/,
         )
     })
 
-    it("both errors reference docs/human-actions.md in recovery text", async () => {
+    it("errors reference docs/human-actions.md in recovery text", async () => {
         try {
             await runLoginCommand({ deviceCode: false })
         } catch (error) {
@@ -40,13 +51,15 @@ describe("runLoginCommand", () => {
             expect((error as CrucibleError).code).toBe("CRUCIBLE-101")
             expect((error as CrucibleError).recovery).toContain("docs/human-actions.md")
         }
+    })
 
-        try {
-            await runLoginCommand({ deviceCode: true })
-        } catch (error) {
-            expect(error).toBeInstanceOf(CrucibleError)
-            expect((error as CrucibleError).code).toBe("CRUCIBLE-101")
-            expect((error as CrucibleError).recovery).toContain("docs/human-actions.md")
-        }
+    it("throws CRUCIBLE-102 for device-code when SSO is configured", async () => {
+        process.env.CRUCIBLE_OIDC_ISSUER = "https://auth.example.com"
+        process.env.CRUCIBLE_OIDC_CLIENT_ID = "test-client-id"
+
+        await expect(runLoginCommand({ deviceCode: true })).rejects.toThrow(CrucibleError)
+        await expect(runLoginCommand({ deviceCode: true })).rejects.toThrow(
+            /Device code login is not yet implemented/,
+        )
     })
 })

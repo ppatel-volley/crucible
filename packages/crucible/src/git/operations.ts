@@ -40,5 +40,11 @@ export function createGitOperations(): GitOperations {
             const status = await git.status()
             return status.isClean()
         },
+
+        async hasRemote(path: string, name: string): Promise<boolean> {
+            const git = simpleGit(path)
+            const remotes = await git.getRemotes()
+            return remotes.some((r) => r.name === name)
+        },
     }
 }

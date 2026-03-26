@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
 import { Command } from "commander"
 import { registerLogsCommand } from "../../commands/logs.js"
 import { registerStatusCommand } from "../../commands/status.js"
-import { registerListCommand, runListCommand } from "../../commands/list.js"
+import { registerListCommand, runListCommand, readGameInfo, formatTimeAgo } from "../../commands/list.js"
 import type { CrucibleConfig, CruciblePaths } from "../../types.js"
 
 vi.mock("../../config/paths.js", () => ({
@@ -15,11 +15,12 @@ vi.mock("../../config/config.js", () => ({
 
 vi.mock("node:fs/promises", () => ({
     readdir: vi.fn(),
+    readFile: vi.fn(),
 }))
 
 import { resolvePaths } from "../../config/paths.js"
 import { loadConfig } from "../../config/config.js"
-import { readdir } from "node:fs/promises"
+import { readdir, readFile } from "node:fs/promises"
 
 const mockPaths: CruciblePaths = {
     configDir: "/tmp/crucible-config",
@@ -132,6 +133,7 @@ describe("runListCommand", () => {
             { name: "game-beta", isDirectory: () => true, isFile: () => false },
             { name: "some-file.txt", isDirectory: () => false, isFile: () => true },
         ] as any)
+        vi.mocked(readFile).mockRejectedValue(new Error("ENOENT"))
 
         await runListCommand({})
 
@@ -139,6 +141,49 @@ describe("runListCommand", () => {
         expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining("game-alpha"))
         expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining("game-beta"))
         expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining("2 game(s) found."))
+
+        consoleSpy.mockRestore()
+    })
+
+    it("shows display name and version from crucible.json", async () => {
+        const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {})
+        vi.mocked(readdir).mockResolvedValue([
+            { name: "scottish-trivia", isDirectory: () => true, isFile: () => false },
+        ] as any)
+        vi.mocked(readFile).mockResolvedValue(
+            JSON.stringify({
+                displayName: "Scottish Trivia",
+                version: "0.1.0",
+                template: "hello-weekend",
+                createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+            }),
+        )
+
+        await runListCommand({})
+
+        const allOutput = consoleSpy.mock.calls.map((c) => c[0]).join("\n")
+        expect(allOutput).toContain("scottish-trivia")
+        expect(allOutput).toContain("Scottish Trivia")
+        expect(allOutput).toContain("0.1.0")
+        expect(allOutput).toContain("hello-weekend")
+        expect(allOutput).toContain("2d ago")
+        expect(allOutput).toContain("1 game(s) found.")
+
+        consoleSpy.mockRestore()
+    })
+
+    it("handles directories without crucible.json gracefully", async () => {
+        const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {})
+        vi.mocked(readdir).mockResolvedValue([
+            { name: "not-a-game", isDirectory: () => true, isFile: () => false },
+        ] as any)
+        vi.mocked(readFile).mockRejectedValue(new Error("ENOENT"))
+
+        await runListCommand({})
+
+        const allOutput = consoleSpy.mock.calls.map((c) => c[0]).join("\n")
+        expect(allOutput).toContain("not-a-game")
+        expect(allOutput).toContain("(no crucible.json)")
 
         consoleSpy.mockRestore()
     })
@@ -152,5 +197,58 @@ describe("runListCommand", () => {
         expect(consoleSpy).toHaveBeenCalledWith("No games found. Run `crucible create` to get started.")
 
         consoleSpy.mockRestore()
+    })
+})
+
+describe("readGameInfo", () => {
+    it("parses crucible.json fields correctly", async () => {
+        vi.mocked(readFile).mockResolvedValue(
+            JSON.stringify({
+                displayName: "Emoji Party",
+                version: "0.2.0",
+                template: "hello-weekend",
+                createdAt: "2026-03-20T12:00:00Z",
+            }),
+        )
+
+        const info = await readGameInfo("/tmp/games", "emoji-party")
+
+        expect(info.gameId).toBe("emoji-party")
+        expect(info.displayName).toBe("Emoji Party")
+        expect(info.version).toBe("0.2.0")
+        expect(info.template).toBe("hello-weekend")
+        expect(info.createdAt).toBe("2026-03-20T12:00:00Z")
+        expect(info.hasCrucibleJson).toBe(true)
+    })
+
+    it("returns fallback values when crucible.json is missing", async () => {
+        vi.mocked(readFile).mockRejectedValue(new Error("ENOENT"))
+
+        const info = await readGameInfo("/tmp/games", "orphan-dir")
+
+        expect(info.gameId).toBe("orphan-dir")
+        expect(info.displayName).toBe("orphan-dir")
+        expect(info.hasCrucibleJson).toBe(false)
+    })
+})
+
+describe("formatTimeAgo", () => {
+    it("returns '—' for empty string", () => {
+        expect(formatTimeAgo("")).toBe("—")
+    })
+
+    it("returns minutes for recent times", () => {
+        const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString()
+        expect(formatTimeAgo(fiveMinAgo)).toBe("5m ago")
+    })
+
+    it("returns hours for times within a day", () => {
+        const threeHoursAgo = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString()
+        expect(formatTimeAgo(threeHoursAgo)).toBe("3h ago")
+    })
+
+    it("returns days for older times", () => {
+        const tenDaysAgo = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString()
+        expect(formatTimeAgo(tenDaysAgo)).toBe("10d ago")
     })
 })
