@@ -104,8 +104,32 @@ All 7 remaining commands scaffolded with proper option parsing and "not yet impl
 
 CrucibleAdmin SSO permission set merged (`volley-infra` PR #2094). Pratik can now create ECR, S3, DynamoDB, CloudFront, API Gateway, and Lambda resources. IAM roles/OIDC provider still need a Terraform follow-up PR.
 
-### Milestone 2A: AWS Resources — UNBLOCKED (CrucibleAdmin permission set active)
-### Milestone 2B: Kubernetes Resources — BLOCKED (needs K8s admin)
+### Milestone 2A: AWS Resources — IN PROGRESS
+
+| Resource | Status | Notes |
+|----------|--------|-------|
+| ECR `crucible-games` | Done | Private, immutable tags, lifecycle policy (keep 50 tagged, expire untagged 7d) |
+| S3 `crucible-clients-dev` | Done | us-east-1, versioning enabled |
+| S3 `crucible-clients-staging` | Done | us-east-1, versioning enabled |
+| S3 `crucible-clients-prod` | Done | us-east-1, versioning enabled |
+| DynamoDB `crucible-catalog` | Done | PITR on, TTL on expiresAt, GSI author-index |
+| DynamoDB `crucible-versions` | Done | PITR on, TTL on expiresAt |
+| `crucible-ci` IAM role | PR open | volley-infra PR #2096 — OIDC role for GitHub Actions |
+| CloudFront distributions | Deferred | Not needed until production — dev uses S3 URLs |
+| GitHub OIDC provider | Already exists | Shared org-wide resource in volley-infra |
+### Milestone 2B: Kubernetes Resources — IN PROGRESS
+
+| Resource | Status | Notes |
+|----------|--------|-------|
+| `crucible-dev` namespace | PR open | kubernetes PR #866 — namespace + RBAC + Flux sync |
+| Dev HelmRelease config | PR open | volley-infra-tenants PR #4273 — HelmRelease + ingress |
+| `crucible-staging` namespace | Not started | |
+| `crucible-production` namespace | Not started | |
+| KEDA | Cluster-level, no per-app config needed | Verify with `kubectl get crd \| grep scaledobjects` |
+| Cilium | Cluster-level, no per-app config needed | Verify with `cilium status` |
+| DNS (`volley-services.net`) | Automatic via external-dns | Created from ingress annotations |
+| DNS (`volley.tv` / CloudFront) | Deferred | Not needed until production |
+
 ### Milestone 2C: Registry API — NOT STARTED (depends on 2A)
 ### Milestone 2D: Supporting Infrastructure — NOT STARTED (depends on 2A, 2B)
 

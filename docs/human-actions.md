@@ -154,26 +154,41 @@ If that works and shows "OK", Cilium is installed. If not, talk to whoever manag
 
 ## 3. DNS Records
 
-**What:** Point domain names at the right AWS resources so games are accessible at nice URLs instead of random CloudFront/ALB addresses.
+**What:** Point domain names at the right AWS resources so games are accessible at nice URLs.
 
-**Who:** Whoever manages DNS for `volley.tv` and `volley-services.net` (probably Route53 or Cloudflare).
+### Game server DNS (`volley-services.net`) -- AUTOMATIC
 
-**Unblocks:** CloudFront distributions (2A.3), game server routing (2B.7).
+**You don't need to create these manually.** The EKS clusters run **external-dns**, which automatically creates Route53 records from Kubernetes ingress annotations. When the HelmRelease config includes:
 
-Create these **6 DNS records** (all CNAME):
+```yaml
+ingress:
+  annotations:
+    external-dns.alpha.kubernetes.io/hostname: "crucible-games-dev.volley-services.net"
+```
 
-| Record | Points To | Purpose |
-|--------|-----------|---------|
-| `crucible-clients-dev.volley.tv` | CloudFront distribution for dev bucket | Dev client assets |
-| `crucible-clients-staging.volley.tv` | CloudFront distribution for staging bucket | Staging client assets |
-| `crucible-clients-prod.volley.tv` | CloudFront distribution for prod bucket | Prod client assets |
-| `crucible-games-dev.volley-services.net` | EKS ALB (dev) | Dev game server traffic |
-| `crucible-games-staging.volley-services.net` | EKS ALB (staging) | Staging game server traffic |
-| `crucible-games-prod.volley-services.net` | EKS ALB (prod) | Prod game server traffic |
+...external-dns creates the CNAME pointing at the ALB automatically.
 
-**Note:** You'll create the CloudFront distributions as part of Phase 2A.3 (an agent can do that once the S3 buckets exist). The ALB already exists if your EKS cluster has an ingress controller. You just need the DNS records pointing to them.
+| Record | Created By | When |
+|--------|-----------|------|
+| `crucible-games-dev.volley-services.net` | external-dns (automatic) | When HelmRelease deploys to dev |
+| `crucible-games-staging.volley-services.net` | external-dns (automatic) | When HelmRelease deploys to staging |
+| `crucible-games-prod.volley-services.net` | external-dns (automatic) | When HelmRelease deploys to prod |
 
-**How you know it worked:** `nslookup crucible-clients-dev.volley.tv` resolves to something.
+**How you know it worked:** `nslookup crucible-games-dev.volley-services.net` resolves after the first deployment.
+
+### Client asset DNS (`volley.tv`) -- TERRAFORM (defer until production)
+
+These point at CloudFront distributions that serve compiled game clients (display + controller JS bundles). **Not needed for dev** -- dev serves clients locally or via S3 URLs.
+
+When ready for production, create in `volley-infra`:
+- CloudFront distributions in `aws/us-east-1/cloudfront/crucible.tf` (follow `weekend.tf` pattern)
+- Route53 CNAME records in `aws/global/route53/volley_tv.tf`
+
+| Record | Points To | Needed Now? |
+|--------|-----------|-------------|
+| `crucible-clients-dev.volley.tv` | CloudFront distribution | No -- defer |
+| `crucible-clients-staging.volley.tv` | CloudFront distribution | No -- defer |
+| `crucible-clients-prod.volley.tv` | CloudFront distribution | No -- defer |
 
 ---
 
