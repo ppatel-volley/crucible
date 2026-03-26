@@ -21,6 +21,39 @@ Crucible is a Unity/Unreal-style project manager for building, testing, and publ
 
 ---
 
+## Working in volley-infra (Terraform)
+
+When creating or modifying Terraform files in the `volley-infra` repo (`C:\volley\dev\volley-infra`):
+
+### Formatting (MANDATORY)
+- **LF line endings only** — run `sed -i 's/\r$//'` on every `.tf` file before committing. CRLF causes `terraform fmt` CI failures.
+- **No Unicode characters** — no em dashes (`—`), use `--` instead. No smart quotes. ASCII only in `.tf` files.
+- The CI runs `terraform fmt -check -recursive` — your file must pass.
+
+### IAM Security (MANDATORY)
+- **NEVER create IAM roles/policies via the AWS console** — always use Terraform (IaC). Console-based IAM write access enables privilege escalation.
+- **NEVER grant IAM write permissions** (CreateRole, CreatePolicy, AttachRolePolicy, PutRolePolicy) in SSO permission sets — if you can create a policy with arbitrary content and attach it to a role, you have admin access.
+- **iam:PassRole is safe** when scoped to specific roles + service conditions (e.g. `iam:PassedToService = lambda.amazonaws.com`).
+- **Use explicit account IDs** (`375633680607`) not wildcards in IAM ARNs.
+
+### Tag-Based Scoping (MANDATORY for CloudFront, API Gateway)
+These services don't support resource-level ARN restrictions. Use tag conditions instead:
+- **Create statements:** Use `aws:RequestTag/Project = "crucible"` (the tag being applied to the new resource)
+- **Mutate/delete statements:** Use `aws:ResourceTag/Project = "crucible"` (checking existing tags on the resource)
+- **TagResource action:** Put in BOTH create (with RequestTag) AND mutate (with ResourceTag). If only in create with RequestTag, it can be used standalone to tag non-crucible resources and bypass the ResourceTag gate on mutate.
+- **OAC operations (CloudFront):** Don't support tags at all. Use a separate create-only statement. No update/delete unless strictly needed.
+
+### Review Bots
+The volley-infra repo has aggressive review bots (Greptile, Cursor Bugbot, Macroscope). They will:
+- Flag any `resources = ["*"]` with destructive actions
+- Detect IAM privilege escalation chains
+- Check tag condition scoping on every statement
+- Verify formatting
+
+Expect 3-5 rounds of bot feedback. Address all High/P0/P1 findings before requesting human review.
+
+---
+
 ## Project Commands
 
 ```bash

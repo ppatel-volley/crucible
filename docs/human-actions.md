@@ -10,9 +10,11 @@
 
 **What:** Create the cloud resources that store game images, client files, and the game registry database.
 
-**Who:** Anyone with AWS console access (or Terraform perms in `volley-infra`).
+**Who:** Pratik, using the **CrucibleAdmin** SSO permission set (created via [volley-infra PR #2094](https://github.com/Volley-Inc/volley-infra/pull/2094)).
 
 **Unblocks:** Almost all of Phase 2. This is the biggest bottleneck.
+
+> **Note:** The CrucibleAdmin permission set covers ECR, S3, DynamoDB, CloudFormation, CloudFront, API Gateway, and Lambda — all scoped to `crucible-*` resources. IAM roles/policies and OIDC provider are managed via Terraform (see section 1d below).
 
 ### 1a. Container Registry (ECR)
 
@@ -77,93 +79,22 @@ This is the database that tracks which games exist, what version they're on, and
 
 ### 1d. GitHub OIDC + IAM Role (CI Authentication)
 
-This lets GitHub Actions deploy games to AWS without storing any AWS credentials in GitHub. GitHub proves its identity using OIDC tokens, and AWS trusts them.
+> **DO NOT create IAM roles/policies from the AWS console.** They must be created via Terraform in the `volley-infra` repo. Console-based IAM write access enables privilege escalation (creating a policy with `Action: "*"` and attaching it to a role you can assume).
 
-**Step 1: Add GitHub as an OIDC provider** (skip if Volley already has this — check IAM → Identity Providers)
-1. Go to **AWS Console → IAM → Identity Providers → Add Provider**
-2. Provider type: **OpenID Connect**
-3. Provider URL: `https://token.actions.githubusercontent.com`
-4. Audience: `sts.amazonaws.com`
-5. Click **Add Provider**
+This lets GitHub Actions deploy games to AWS without storing any AWS credentials in GitHub.
 
-**Step 2: Create the CI role**
-1. Go to **IAM → Roles → Create Role**
-2. Trusted entity: **Web identity**
-3. Identity provider: select the GitHub one you just added
-4. Audience: `sts.amazonaws.com`
-5. **Important — Condition:** Add a condition so only Crucible game repos can use this role:
-   - Key: `token.actions.githubusercontent.com:sub`
-   - Condition: **StringLike**
-   - Value: `repo:Volley-Inc/crucible-game-*:ref:refs/heads/main`
+**How to do it:**
+1. Create a new Terraform file in `volley-infra` (e.g. `aws/us-east-1/crucible/iam.tf`)
+2. Define the GitHub OIDC provider (if not already present), the `crucible-ci` role with trust policy, and the `crucible-ci-policy` with scoped permissions
+3. Submit as a PR — the review bots will check for escalation paths
+4. Get it reviewed and merged via Atlantis
 
-   This means only repos matching `crucible-game-*` pushing to `main` can assume this role. Nobody else.
+**What the Terraform should create:**
+- GitHub OIDC provider (if not already in the account)
+- `crucible-ci` IAM role with trust policy scoped to `repo:Volley-Inc/crucible-game-*:ref:refs/heads/main`
+- `crucible-ci-policy` with permissions for: ECR push/pull, S3 put to `crucible-clients-*`, DynamoDB CRUD on `crucible-*`, EKS DescribeCluster, CloudFormation for IRSA stacks
 
-6. Name the role: `crucible-ci`
-7. Attach these permissions (create a custom policy):
-
-```json
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Sid": "ECR",
-      "Effect": "Allow",
-      "Action": [
-        "ecr:GetAuthorizationToken",
-        "ecr:BatchCheckLayerAvailability",
-        "ecr:PutImage",
-        "ecr:InitiateLayerUpload",
-        "ecr:UploadLayerPart",
-        "ecr:CompleteLayerUpload",
-        "ecr:BatchGetImage",
-        "ecr:GetDownloadUrlForLayer"
-      ],
-      "Resource": "arn:aws:ecr:*:*:repository/crucible-games"
-    },
-    {
-      "Sid": "ECRAuth",
-      "Effect": "Allow",
-      "Action": "ecr:GetAuthorizationToken",
-      "Resource": "*"
-    },
-    {
-      "Sid": "S3",
-      "Effect": "Allow",
-      "Action": ["s3:PutObject", "s3:GetObject", "s3:ListBucket"],
-      "Resource": [
-        "arn:aws:s3:::crucible-clients-*",
-        "arn:aws:s3:::crucible-clients-*/*"
-      ]
-    },
-    {
-      "Sid": "DynamoDB",
-      "Effect": "Allow",
-      "Action": [
-        "dynamodb:GetItem",
-        "dynamodb:PutItem",
-        "dynamodb:UpdateItem",
-        "dynamodb:DeleteItem",
-        "dynamodb:Query"
-      ],
-      "Resource": "arn:aws:dynamodb:*:*:table/crucible-*"
-    },
-    {
-      "Sid": "EKS",
-      "Effect": "Allow",
-      "Action": "eks:DescribeCluster",
-      "Resource": "*"
-    },
-    {
-      "Sid": "CloudFormation",
-      "Effect": "Allow",
-      "Action": ["cloudformation:*"],
-      "Resource": "arn:aws:cloudformation:*:*:stack/crucible-*/*"
-    }
-  ]
-}
-```
-
-**How you know it worked:** Note down the role ARN (looks like `arn:aws:iam::123456789:role/crucible-ci`). You'll need it later for the GitHub Actions workflow.
+**How you know it worked:** `aws iam get-role --role-name crucible-ci` returns the role. Note down the ARN for the GitHub Actions workflow.
 
 ---
 
