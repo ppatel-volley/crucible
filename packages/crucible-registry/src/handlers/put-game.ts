@@ -46,6 +46,27 @@ export async function handler(
     const expectedUpdatedAt = body.expectedUpdatedAt as string | undefined
     const now = new Date().toISOString()
 
+    // Allowlist: only persist known catalog fields from the request body.
+    // Server-controlled fields (gameId, updatedAt, registeredBy) are set
+    // explicitly and cannot be overridden by the client.
+    const ALLOWED_FIELDS = [
+        "displayName",
+        "description",
+        "author",
+        "template",
+        "environments",
+        "imageTag",
+        "commitSha",
+        "version",
+        "status",
+    ] as const
+    const sanitised: Record<string, unknown> = {}
+    for (const field of ALLOWED_FIELDS) {
+        if (field in body) {
+            sanitised[field] = body[field]
+        }
+    }
+
     try {
         const conditionExpression = expectedUpdatedAt
             ? "attribute_exists(gameId) AND updatedAt = :expected"
@@ -59,7 +80,8 @@ export async function handler(
                 TableName: CATALOG_TABLE,
                 Item: {
                     gameId,
-                    ...body,
+                    ...sanitised,
+                    ...(!expectedUpdatedAt && { createdAt: now }),
                     updatedAt: now,
                     registeredBy: auth.principal,
                 },
