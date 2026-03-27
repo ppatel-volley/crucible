@@ -30,6 +30,8 @@ crucible dev scottish-trivia
 
 That's it. Three commands from idea to playable game.
 
+> **Prototype deployments:** Once Bifrost is available on the dev cluster, you can also run `crucible prototype scottish-trivia` to deploy to a shared Kubernetes environment with real infrastructure dependencies. See the [crucible prototype](#crucible-prototype) section below.
+
 ---
 
 ## Installation
@@ -233,6 +235,84 @@ Open the **Display** URL in a browser to see the TV screen. Open the **Controlle
 **Port conflicts:** If a port is in use, Crucible automatically finds the next available one (up to +100 from the default).
 
 **Stopping:** Press `q` or `Ctrl+C`. Double `Ctrl+C` within 1 second force-kills everything.
+
+---
+
+### crucible prototype
+
+Deploy a game to a shared Kubernetes cluster for testing with real infrastructure dependencies.
+
+```bash
+crucible prototype <game-id> [--watch] [--dependencies <deps>] [--delete]
+```
+
+**Arguments:**
+- `<game-id>` — Your game's ID (kebab-case name, e.g. `space-blaster`)
+
+**Options:**
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--watch` | Rebuild and redeploy on file changes | `false` |
+| `--dependencies <deps>` | Infrastructure dependencies (format: `name:type,name:type`) | none |
+| `--delete` | Remove the prototype and clean up all resources | `false` |
+
+**Dependency types:** `postgres`, `redis`, `s3`
+
+**What happens:**
+
+1. Builds the game into a single container (server + static display/controller)
+2. Pushes to the in-cluster registry
+3. Applies a GamePrototype CRD to the Kubernetes cluster
+4. Bifrost operator provisions the namespace, dependencies, and deployment
+5. Prints the prototype URL
+
+**Example:**
+
+```bash
+crucible prototype space-blaster --dependencies scores:postgres,cache:redis
+```
+
+```
+  Building prototype...
+    ✓ Display built (2.1s)
+    ✓ Controller built (1.8s)
+    ✓ Server bundled with static clients (3.4s)
+    ✓ Image pushed to in-cluster registry (1.2s)
+    ✓ GamePrototype applied
+
+  Waiting for Bifrost...
+    ✓ Namespace created: space-blaster-prototype
+    ✓ Dependencies provisioned (postgres, redis)
+    ✓ Deployment running
+
+  ✓ Prototype live!
+    Server:     http://space-blaster.space-blaster-prototype.svc.cluster.local:3000
+    Display:    http://space-blaster.space-blaster-prototype.svc.cluster.local:3000/display/
+    Controller: http://space-blaster.space-blaster-prototype.svc.cluster.local:3000/controller/
+
+    Dependencies:
+      scores (postgres): space_blaster_scores_db
+      cache (redis):     space-blaster:cache: prefix
+```
+
+**Cleanup:**
+
+```bash
+crucible prototype space-blaster --delete
+```
+
+```
+  ✓ GamePrototype deleted
+  ✓ Bifrost cleaning up (database, namespace)...
+  ✓ Prototype removed
+```
+
+**Notes:**
+- This requires Bifrost deployed on the cluster and kubectl access configured
+- Prototypes use shared in-cluster infrastructure (not production AWS)
+- Data is not durable — prototypes can be destroyed and recreated
+
+> **Coming soon** — requires Bifrost deployment on dev cluster.
 
 ---
 
@@ -473,8 +553,9 @@ When you create a game, Crucible generates this structure:
 1. crucible create "My Game"     # Scaffold the project
 2. crucible agent my-game        # Describe what you want, AI builds it
 3. crucible dev my-game          # Test locally on TV + phone
-4. crucible publish my-game      # Push to dev environment (coming soon)
-5. crucible promote my-game      # Promote to staging/prod (coming soon)
+4. crucible prototype my-game    # Deploy to shared cluster for testing (coming soon)
+5. crucible publish my-game      # Push to dev environment (coming soon)
+6. crucible promote my-game      # Promote to staging/prod (coming soon)
 ```
 
 ---
@@ -569,6 +650,7 @@ Someone (or something) modified the Dockerfile directly. The Dockerfile is manag
 | `crucible agent` | Working (needs `ANTHROPIC_API_KEY`) |
 | `crucible dev` | Working |
 | `crucible list` | Working |
+| `crucible prototype` | Coming soon (requires Bifrost) |
 | `crucible publish` | Pre-flight checks only. CI integration coming in Phase 2. |
 | `crucible login` | OIDC flow built (PKCE, callback server, token store). Needs SSO config values. |
 | `crucible rollback` | Coming in Phase 2 |

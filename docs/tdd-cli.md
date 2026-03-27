@@ -528,6 +528,92 @@ Logs from all three processes are interleaved with colour-coded prefixes:
 - Startup timeout: 30s per sub-process. If any fails, kill all and report which one failed.
 - `q` key or Ctrl+C performs graceful shutdown — `SIGTERM` to all, 5s grace, `SIGKILL` fallback via `tree-kill`.
 
+### 4.7 Prototype Deployment (Bifrost)
+
+`crucible prototype` deploys the game to the shared development cluster via Bifrost, giving designers and producers a shareable URL without going through the full CI/CD pipeline.
+
+**Syntax:**
+
+```
+crucible prototype <game-id> [--watch] [--dependencies <deps>] [--source] [--delete]
+```
+
+| Flag | Description |
+|------|-------------|
+| `<game-id>` | Required. The game identifier from `crucible.json`. |
+| `--watch` | Re-deploy automatically when source files change. |
+| `--dependencies <deps>` | Comma-separated list of backing services (e.g., `redis,dynamodb`). |
+| `--source` | Use Bifrost Buildpacks instead of local Docker build. |
+| `--delete` | Tear down the prototype deployment and clean up resources. |
+
+**Build modes:**
+
+| Mode | Trigger | How It Works |
+|------|---------|-------------|
+| **Local build** (default) | No `--source` flag | Builds the container image locally using the game's `Dockerfile`, tags it, and pushes to the shared ECR registry. |
+| **Source-based** | `--source` flag | Pushes source code to Bifrost, which uses Cloud Native Buildpacks to detect the runtime, build, and deploy. No local Docker required. |
+
+Local build is the default because it reuses the same `Dockerfile` that production CI uses, catching build issues early. Source-based mode is useful when Docker is not installed locally (e.g., lightweight laptops, Codespaces).
+
+**Dependencies flag:**
+
+The `--dependencies` flag provisions backing services alongside the game container. Format is a comma-separated list of service identifiers:
+
+```
+crucible prototype scottish-trivia --dependencies redis,dynamodb
+```
+
+Each dependency is injected into the game container as environment variables following the naming convention `CRUCIBLE_DEP_<SERVICE>_<PROPERTY>`:
+
+| Dependency | Injected Env Vars |
+|------------|-------------------|
+| `redis` | `CRUCIBLE_DEP_REDIS_HOST`, `CRUCIBLE_DEP_REDIS_PORT` |
+| `dynamodb` | `CRUCIBLE_DEP_DYNAMODB_ENDPOINT`, `CRUCIBLE_DEP_DYNAMODB_TABLE` |
+
+**Watch mode:**
+
+When `--watch` is active, the CLI monitors `apps/` and `packages/` for file changes (debounced 2s). On change:
+1. Rebuild the container image (local mode) or re-push source (source mode)
+2. Push the updated image to registry
+3. Patch the Bifrost CRD to trigger a rolling update
+4. Report the new revision once healthy
+
+Watch mode exits on `q` or Ctrl+C and leaves the prototype running. Use `--delete` to tear it down.
+
+**Output:**
+
+```
+Deploying prototype for scottish-trivia...
+
+  ✓ Built container image (12.4s)
+  ✓ Pushed to registry (3.2s)
+  ✓ Applied Bifrost CRD (0.3s)
+  ⠸ Waiting for pods...       ✓ healthy (6.1s)
+
+  ✓ Prototype live:
+    https://scottish-trivia.prototype.crucible-dev.volley-services.net
+```
+
+**Cleanup:**
+
+```
+crucible prototype scottish-trivia --delete
+
+  ✓ Removed Bifrost CRD
+  ✓ Namespace crucible-proto-scottish-trivia cleaned up
+
+  Prototype torn down.
+```
+
+**Error codes:**
+
+| Code | Name | Description |
+|------|------|-------------|
+| CRUCIBLE-901 | deploy-failed | Bifrost CRD was applied but the deployment did not become healthy within the timeout (120s). |
+| CRUCIBLE-902 | build-failed | Local Docker build or Bifrost Buildpack build failed. Includes build output. |
+| CRUCIBLE-903 | registry-push-failed | Container image push to ECR failed (auth, network, or quota). |
+| CRUCIBLE-904 | cluster-access-error | Cannot reach the Kubernetes API. SSO token may be expired or cluster is unreachable. |
+
 ---
 
 ## 5. Build & Deploy Trigger (`crucible publish`)
@@ -661,6 +747,8 @@ scottish-trivia — Scottish Trivia
   dev         │ 00042-a1b2c3d    │ healthy   │ 1/1      │ 2h ago
   staging     │ 00041-f3e2d1a    │ healthy   │ 0/0      │ 1d ago
   prod        │ —                │ —         │ —        │ —
+  Prototype   │ local-build      │ Running   │ 1/1      │ 5m ago
+              │ scottish-trivia.prototype.crucible-dev.volley-services.net
 ```
 
 All games (no argument):
@@ -738,6 +826,7 @@ Format: `CRUCIBLE-XYY` where X = category, YY = specific error.
 | Promote | 6xx | 601: no source version |
 | Rollback | 7xx | 701: no previous version, 703: version not found |
 | Template | 8xx | 801: clone / template source failed, 802: remove template artefacts failed, 803: token replacement failed, 804: generated files failed, 805: `.npmrc` write failed, 806: `pnpm install` failed; 807: reserved for template version mismatch |
+| Prototype | 9xx | 901: deploy failed, 902: build failed, 903: registry push failed, 904: cluster access error |
 
 **Every error follows this structure:**
 ```
@@ -961,7 +1050,25 @@ User message
   → Session Persistence (save to ~/.local/share/crucible/sessions/)
 ```
 
-### 11.3 `crucible publish`
+### 11.3 Prototype Data Flow
+
+```
+Developer
+  → crucible prototype <game-id>
+  → Build Phase:
+      Local mode: docker build → docker tag → docker push (ECR)
+      Source mode: tar + push source → Bifrost Buildpacks → image in ECR
+  → Apply Bifrost CRD (kubectl apply -f prototype-crd.yaml)
+  → Bifrost Controller (cluster-side):
+      → Create namespace crucible-proto-<game-id>
+      → Provision dependencies (Redis, DynamoDB, etc.)
+      → Inject CRUCIBLE_DEP_* env vars into pod spec
+      → Create Deployment + Service + Ingress
+  → Pod scheduling → container pull → startup → health check
+  → Game running at https://<game-id>.prototype.crucible-dev.volley-services.net
+```
+
+### 11.4 `crucible publish`
 
 ```
 Pre-flight checks (clean tree, checksum, auth)
@@ -972,7 +1079,7 @@ Pre-flight checks (clean tree, checksum, auth)
   → On completion: show summary or failure details
 ```
 
-### 11.4 `crucible login`
+### 11.5 `crucible login`
 
 ```
 PKCE generation (verifier + challenge + state)
