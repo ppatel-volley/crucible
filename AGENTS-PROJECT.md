@@ -122,14 +122,13 @@ Use conventional commits. Keep the subject line under 72 chars, imperative mood.
 
 ## Git Workflow
 
-**MANDATORY: Always use branches and PRs.** Never commit directly to `main` in any repo. The Crucible system has an author who reviews all changes.
+**Crucible repo:** Direct pushes to `main` are fine for Quick tasks. Use feature branches + PRs for Standard/Critical tasks.
 
-1. Create a feature branch before starting work: `git checkout -b feat/...`
-2. Commit to the branch, push, and create a PR
-3. Wait for review (bot reviews + human approval) before merging
-4. This applies to ALL repos: `crucible`, `volley-infra`, `volley-infra-tenants`, `kubernetes`
-
-The only exception is trivial doc-only fixes that the user explicitly asks to push directly.
+**External repos (always branch + PR):**
+- `bifrost` — Has its own author who reviews all changes. Always branch + PR.
+- `volley-infra` — Shared infra repo with Atlantis and bot reviewers. Always branch + PR.
+- `volley-infra-tenants` — Shared tenant configs. Always branch + PR.
+- `kubernetes` — Shared K8s configs. Always branch + PR.
 
 ---
 
