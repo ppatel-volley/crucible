@@ -542,7 +542,7 @@ crucible prototype <game-id> [--watch] [--dependencies <deps>] [--source] [--del
 |------|-------------|
 | `<game-id>` | Required. The game identifier from `crucible.json`. |
 | `--watch` | Re-deploy automatically when source files change. |
-| `--dependencies <deps>` | Comma-separated list of backing services (e.g., `redis,dynamodb`). |
+| `--dependencies <deps>` | Named dependencies as `name:type` pairs (e.g., `cache:redis,scores:postgres,assets:s3`). Types: `postgres`, `redis`, `s3`. |
 | `--source` | Use Bifrost Buildpacks instead of local Docker build. |
 | `--delete` | Tear down the prototype deployment and clean up resources. |
 
@@ -557,18 +557,19 @@ Local build is the default because it reuses the same `Dockerfile` that producti
 
 **Dependencies flag:**
 
-The `--dependencies` flag provisions backing services alongside the game container. Format is a comma-separated list of service identifiers:
+The `--dependencies` flag provisions backing services alongside the game container. Format is `name:type` pairs, comma-separated. The name becomes the env var prefix:
 
 ```
-crucible prototype scottish-trivia --dependencies redis,dynamodb
+crucible prototype scottish-trivia --dependencies scores:postgres,cache:redis,assets:s3
 ```
 
-Each dependency is injected into the game container as environment variables following the naming convention `CRUCIBLE_DEP_<SERVICE>_<PROPERTY>`:
+Each dependency is injected into the game container as environment variables following the naming convention `{NAME}_{PROPERTY}` (matching Bifrost's provisioner output):
 
-| Dependency | Injected Env Vars |
-|------------|-------------------|
-| `redis` | `CRUCIBLE_DEP_REDIS_HOST`, `CRUCIBLE_DEP_REDIS_PORT` |
-| `dynamodb` | `CRUCIBLE_DEP_DYNAMODB_ENDPOINT`, `CRUCIBLE_DEP_DYNAMODB_TABLE` |
+| Type | Injected Env Vars (for dependency named `scores`) |
+|------|--------------------------------------------------|
+| `postgres` | `SCORES_DATABASE_URL` |
+| `redis` | `SCORES_REDIS_HOST`, `SCORES_REDIS_PORT`, `SCORES_REDIS_KEY_PREFIX` |
+| `s3` | `SCORES_S3_ENDPOINT`, `SCORES_S3_BUCKET`, `SCORES_S3_ACCESS_KEY_ID`, `SCORES_S3_SECRET_ACCESS_KEY`, `SCORES_S3_REGION` |
 
 **Watch mode:**
 

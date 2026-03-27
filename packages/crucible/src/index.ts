@@ -15,6 +15,7 @@ import { registerStatusCommand } from "./commands/status.js"
 import { registerListCommand } from "./commands/list.js"
 import { registerLoginCommand } from "./commands/login.js"
 import { registerPromoteCommand } from "./commands/promote.js"
+import { registerPrototypeCommand } from "./commands/prototype.js"
 import { CrucibleError } from "./util/errors.js"
 
 export function resolveGlobalOptions(program: Command): GlobalOptions {
@@ -63,6 +64,7 @@ function createProgram(): Command {
     registerListCommand(program)
     registerLoginCommand(program)
     registerPromoteCommand(program)
+    registerPrototypeCommand(program)
 
     return program
 }
