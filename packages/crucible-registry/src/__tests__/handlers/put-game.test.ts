@@ -95,6 +95,89 @@ describe("PUT /games/:gameId", () => {
         expect(body.error).toContain("Conflict")
     })
 
+    it("uses create condition and sets createdAt on first registration", async () => {
+        mockSend.mockResolvedValueOnce({})
+
+        await handler(makeEvent())
+
+        const putInput = mockSend.mock.calls[0][0] as {
+            ConditionExpression: string
+            Item: Record<string, unknown>
+        }
+        expect(putInput.ConditionExpression).toBe(
+            "attribute_not_exists(gameId)",
+        )
+        expect(putInput.Item.createdAt).toBeDefined()
+        expect(typeof putInput.Item.createdAt).toBe("string")
+    })
+
+    it("uses update condition when expectedUpdatedAt is present and omits createdAt", async () => {
+        mockSend.mockResolvedValueOnce({})
+        const prior = "2025-01-01T12:00:00.000Z"
+
+        await handler(
+            makeEvent({
+                body: JSON.stringify({
+                    displayName: "Updated",
+                    expectedUpdatedAt: prior,
+                }),
+            }),
+        )
+
+        const putInput = mockSend.mock.calls[0][0] as {
+            ConditionExpression: string
+            ExpressionAttributeValues?: Record<string, string>
+            Item: Record<string, unknown>
+        }
+        expect(putInput.ConditionExpression).toBe(
+            "attribute_exists(gameId) AND updatedAt = :expected",
+        )
+        expect(putInput.ExpressionAttributeValues).toEqual({
+            ":expected": prior,
+        })
+        expect(putInput.Item).not.toHaveProperty("createdAt")
+        expect(putInput.Item.displayName).toBe("Updated")
+    })
+
+    it("persists path gameId and drops unknown body keys", async () => {
+        mockSend.mockResolvedValueOnce({})
+
+        await handler(
+            makeEvent({
+                body: JSON.stringify({
+                    displayName: "OK",
+                    gameId: "other-game",
+                    evilKey: "nope",
+                }),
+            }),
+        )
+
+        const putInput = mockSend.mock.calls[0][0] as {
+            Item: Record<string, unknown>
+        }
+        expect(putInput.Item.gameId).toBe("test-game")
+        expect(putInput.Item.displayName).toBe("OK")
+        expect(putInput.Item).not.toHaveProperty("evilKey")
+    })
+
+    it("does not persist expectedUpdatedAt on the catalog item", async () => {
+        mockSend.mockResolvedValueOnce({})
+
+        await handler(
+            makeEvent({
+                body: JSON.stringify({
+                    displayName: "X",
+                    expectedUpdatedAt: "2025-01-01T00:00:00.000Z",
+                }),
+            }),
+        )
+
+        const putInput = mockSend.mock.calls[0][0] as {
+            Item: Record<string, unknown>
+        }
+        expect(putInput.Item).not.toHaveProperty("expectedUpdatedAt")
+    })
+
     it("returns 500 on unexpected DynamoDB error", async () => {
         mockSend.mockRejectedValueOnce(new Error("Something went wrong"))
 
