@@ -1,6 +1,7 @@
 import type { APIGatewayProxyEvent, APIGatewayProxyResult } from "aws-lambda"
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb"
 import { DynamoDBDocumentClient, PutCommand } from "@aws-sdk/lib-dynamodb"
+import { verifyAuth } from "../lib/auth.js"
 
 const client = new DynamoDBClient({})
 const docClient = DynamoDBDocumentClient.from(client)
@@ -9,6 +10,16 @@ const CATALOG_TABLE = process.env.CATALOG_TABLE ?? "crucible-catalog"
 export async function handler(
     event: APIGatewayProxyEvent,
 ): Promise<APIGatewayProxyResult> {
+    // Auth check — PUT requires authenticated CI caller
+    const auth = verifyAuth(event)
+    if (!auth.authenticated) {
+        return {
+            statusCode: 401,
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ error: "Authentication required" }),
+        }
+    }
+
     const gameId = event.pathParameters?.gameId
     if (!gameId) {
         return {
@@ -29,11 +40,20 @@ export async function handler(
         }
     }
 
+    // Client must provide expectedUpdatedAt for optimistic concurrency.
+    // First write (new game) uses attribute_not_exists; subsequent writes
+    // must match the previous updatedAt exactly to detect conflicts.
+    const expectedUpdatedAt = body.expectedUpdatedAt as string | undefined
     const now = new Date().toISOString()
 
     try {
-        // Conditional write — fail if game already exists with a different version
-        // to prevent race conditions during concurrent deploys
+        const conditionExpression = expectedUpdatedAt
+            ? "attribute_exists(gameId) AND updatedAt = :expected"
+            : "attribute_not_exists(gameId)"
+        const expressionValues = expectedUpdatedAt
+            ? { ":expected": expectedUpdatedAt }
+            : undefined
+
         await docClient.send(
             new PutCommand({
                 TableName: CATALOG_TABLE,
@@ -41,10 +61,12 @@ export async function handler(
                     gameId,
                     ...body,
                     updatedAt: now,
+                    registeredBy: auth.principal,
                 },
-                ConditionExpression:
-                    "attribute_not_exists(gameId) OR updatedAt <= :ts",
-                ExpressionAttributeValues: { ":ts": now },
+                ConditionExpression: conditionExpression,
+                ...(expressionValues && {
+                    ExpressionAttributeValues: expressionValues,
+                }),
             }),
         )
 

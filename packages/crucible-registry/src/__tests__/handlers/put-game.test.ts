@@ -30,7 +30,9 @@ function makeEvent(
         multiValueHeaders: {},
         multiValueQueryStringParameters: null,
         stageVariables: null,
-        requestContext: {} as APIGatewayProxyEvent["requestContext"],
+        requestContext: {
+            authorizer: { principalId: "ci-user" },
+        } as unknown as APIGatewayProxyEvent["requestContext"],
         resource: "",
         ...overrides,
     }
@@ -39,6 +41,15 @@ function makeEvent(
 describe("PUT /games/:gameId", () => {
     beforeEach(() => {
         mockSend.mockReset()
+    })
+
+    it("returns 401 when not authenticated", async () => {
+        const result = await handler(
+            makeEvent({
+                requestContext: {} as APIGatewayProxyEvent["requestContext"],
+            }),
+        )
+        expect(result.statusCode).toBe(401)
     })
 
     it("returns 200 on successful registration", async () => {

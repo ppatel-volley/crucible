@@ -1,6 +1,7 @@
 import type { APIGatewayProxyEvent, APIGatewayProxyResult } from "aws-lambda"
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb"
 import { DynamoDBDocumentClient, UpdateCommand } from "@aws-sdk/lib-dynamodb"
+import { verifyAuth, isAdmin } from "../lib/auth.js"
 
 const client = new DynamoDBClient({})
 const docClient = DynamoDBDocumentClient.from(client)
@@ -9,6 +10,15 @@ const CATALOG_TABLE = process.env.CATALOG_TABLE ?? "crucible-catalog"
 export async function handler(
     event: APIGatewayProxyEvent,
 ): Promise<APIGatewayProxyResult> {
+    // Auth check — DELETE requires admin
+    const auth = verifyAuth(event)
+    if (!auth.authenticated) {
+        return { statusCode: 401, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ error: "Authentication required" }) }
+    }
+    if (!isAdmin(event)) {
+        return { statusCode: 403, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ error: "Admin access required" }) }
+    }
+
     const gameId = event.pathParameters?.gameId
     if (!gameId) {
         return {
