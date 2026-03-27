@@ -122,7 +122,14 @@ Use conventional commits. Keep the subject line under 72 chars, imperative mood.
 
 ## Git Workflow
 
-**Feature branch:** Create `feature/name` branches. Merge via PR. Create a branch for Standard/Critical tasks; commit directly for Quick tasks.
+**MANDATORY: Always use branches and PRs.** Never commit directly to `main` in any repo. The Crucible system has an author who reviews all changes.
+
+1. Create a feature branch before starting work: `git checkout -b feat/...`
+2. Commit to the branch, push, and create a PR
+3. Wait for review (bot reviews + human approval) before merging
+4. This applies to ALL repos: `crucible`, `volley-infra`, `volley-infra-tenants`, `kubernetes`
+
+The only exception is trivial doc-only fixes that the user explicitly asks to push directly.
 
 ---
 
