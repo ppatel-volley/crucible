@@ -286,3 +286,35 @@ export interface GlobalOptions {
     verbose: boolean
     quiet: boolean
 }
+
+// === Prototype / Bifrost ===
+export type BifrostDependencyType = "postgres" | "redis" | "s3"
+
+export interface BifrostDependency {
+    type: BifrostDependencyType
+}
+
+export interface GamePrototypeSpec {
+    image: string
+    port?: number
+    websocket?: boolean
+    env?: Record<string, string>
+    dependencies?: Record<string, BifrostDependency>
+}
+
+export interface GamePrototypeCRD {
+    apiVersion: "volley.weekend.com/v1alpha1"
+    kind: "GamePrototype"
+    metadata: { name: string }
+    spec: GamePrototypeSpec
+}
+
+export interface PrototypeOptions {
+    gameId: string
+    imageTag: string
+    registryHost?: string // default: "registry.prototypes.svc.cluster.local:5000"
+    port?: number // default: 3000
+    websocket?: boolean // default: true (VGF games use WebSocket)
+    env?: Record<string, string>
+    dependencies?: string // format: "name:type,name:type"
+}

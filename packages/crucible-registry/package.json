@@ -1,0 +1,22 @@
+{
+  "name": "@volley/crucible-registry",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -b",
+    "test": "vitest",
+    "test:run": "vitest --run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.600.0",
+    "@aws-sdk/lib-dynamodb": "^3.600.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0",
+    "vitest": "^3.2.0",
+    "@types/aws-lambda": "^8.10.0",
+    "@types/node": "^22.0.0"
+  }
+}
