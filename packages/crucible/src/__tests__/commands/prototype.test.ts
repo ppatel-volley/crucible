@@ -19,6 +19,8 @@ vi.mock("../../util/logger.js", () => ({
 
 vi.mock("node:fs/promises", () => ({
     stat: vi.fn(),
+    writeFile: vi.fn(),
+    rm: vi.fn(),
 }))
 
 vi.mock("execa", () => ({
@@ -168,22 +170,44 @@ describe("runPrototypeCommand", () => {
         }
     })
 
-    it("deploy flow throws CRUCIBLE-901 not yet implemented for valid inputs", async () => {
+    it("deploy flow checks kubectl access then applies CRD", async () => {
         vi.mocked(stat).mockResolvedValue({ isDirectory: () => true } as any)
 
-        try {
-            await runPrototypeCommand("my-game", {
+        // Mock kubectl cluster-info (access check)
+        const mockExeca = vi.mocked(execa)
+        mockExeca
+            .mockResolvedValueOnce({} as any) // cluster-info
+            .mockResolvedValueOnce({ stdout: "https://github.com/Volley-Inc/crucible-game-my-game.git" } as any) // git remote get-url
+            .mockResolvedValueOnce({} as any) // kubectl apply
+            .mockResolvedValueOnce({ stdout: "Running,my-game.my-game-prototype.svc.cluster.local," } as any) // kubectl get (poll)
+            .mockResolvedValueOnce({ stdout: JSON.stringify({ status: { phase: "Running", hostname: "my-game.my-game-prototype.svc.cluster.local", dependencies: {} } }) } as any) // kubectl get (full)
+
+        await runPrototypeCommand("my-game", {
+            watch: false,
+            delete: false,
+            registry: "registry.prototypes.svc.cluster.local:5000",
+            port: 3000,
+        })
+
+        // Verify kubectl cluster-info was called (access check)
+        expect(mockExeca).toHaveBeenCalledWith("kubectl", ["cluster-info", "--request-timeout=5s"])
+
+        // Verify kubectl apply was called
+        expect(mockExeca).toHaveBeenCalledWith("kubectl", expect.arrayContaining(["apply", "-f"]))
+    })
+
+    it("deploy flow throws CRUCIBLE-904 when kubectl not available", async () => {
+        vi.mocked(stat).mockResolvedValue({ isDirectory: () => true } as any)
+        vi.mocked(execa).mockRejectedValue(new Error("kubectl not found"))
+
+        await expect(
+            runPrototypeCommand("my-game", {
                 watch: false,
                 delete: false,
                 registry: "registry.prototypes.svc.cluster.local:5000",
                 port: 3000,
-            })
-            expect.unreachable("Should have thrown")
-        } catch (err) {
-            expect(err).toBeInstanceOf(CrucibleError)
-            expect((err as CrucibleError).code).toBe("CRUCIBLE-901")
-            expect((err as CrucibleError).message).toContain("not yet fully implemented")
-        }
+            }),
+        ).rejects.toThrow(/Cannot connect to Kubernetes cluster/)
     })
 
     it("parses --dependencies, --registry, --port options correctly", () => {

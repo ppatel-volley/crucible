@@ -110,38 +110,71 @@ OIDC login flow built and ready for SSO config values.
 
 ---
 
-## Phase 2: Shared Infrastructure — PARTIALLY UNBLOCKED
+## Bifrost Integration — LIVE ON DEV CLUSTER
 
-CrucibleAdmin SSO permission set merged (`volley-infra` PR #2094). `crucible-ci` IAM role created via Terraform (`volley-infra` PR #2096, applied). AWS resources provisioned. K8s tenant onboarding in progress.
+Bifrost operator deployed to shared-k8s-dev with all shared infrastructure running. Phase 2 (Buildpacks) feature-complete.
 
-### Milestone 2A: AWS Resources — IN PROGRESS
+| Component | Status | Notes |
+|-----------|--------|-------|
+| Bifrost controller | **Deployed** | Running on EKS dev cluster |
+| Shared Postgres | **Running** | In `prototypes` namespace |
+| Shared MinIO (S3) | **Running** | In `prototypes` namespace |
+| Shared Redis | **Running** | In `prototypes` namespace |
+| In-cluster registry | **Running** | `registry.prototypes.svc.cluster.local:5000` |
+| `spec.source` (Buildpacks) | **Working** | Git clone → pack build → push to registry, auto-rebuild on branch advance |
+| `spec.image` (pre-built) | **Working** | Push image to in-cluster registry, reference in CRD |
+| Tictactoe sample | **Working** | End-to-end smoke test with Postgres + S3 dependencies |
+| SSH deploy key support | **Working** | For private repos |
+
+### Crucible Prototype Modules — COMPLETE (deploy flow in progress)
+
+| Module | Status | Tests |
+|--------|--------|-------|
+| CRD generator (`prototype/crd.ts`) | Done | 9 |
+| Registry push (`prototype/registry.ts`) | Done | 9 |
+| `crucible prototype` command | Scaffold done, deploy flow wiring in progress | 6 |
+
+---
+
+## Phase 2: Shared Infrastructure — MOSTLY COMPLETE
+
+CrucibleAdmin SSO permission set merged. `crucible-ci` IAM role applied. AWS resources provisioned. K8s tenant onboarding complete.
+
+### Milestone 2A: AWS Resources — COMPLETE
 
 | Resource | Status | Notes |
 |----------|--------|-------|
-| ECR `crucible-games` | Done | Private, immutable tags, lifecycle policy (keep 50 tagged, expire untagged 7d) |
-| S3 `crucible-clients-dev` | Done | us-east-1, versioning enabled |
-| S3 `crucible-clients-staging` | Done | us-east-1, versioning enabled |
-| S3 `crucible-clients-prod` | Done | us-east-1, versioning enabled |
+| ECR `crucible-games` | Done | Private, immutable tags, lifecycle policy |
+| S3 `crucible-clients-{dev,staging,prod}` | Done | us-east-1, versioning enabled |
 | DynamoDB `crucible-catalog` | Done | PITR on, TTL on expiresAt, GSI author-index |
 | DynamoDB `crucible-versions` | Done | PITR on, TTL on expiresAt |
-| `crucible-ci` IAM role | **Done** | volley-infra PR #2096 — applied via Atlantis |
-| CloudFront distributions | Deferred | Not needed until production — dev uses S3 URLs |
-| GitHub OIDC provider | Already exists | Shared org-wide resource in volley-infra |
-### Milestone 2B: Kubernetes Resources — IN PROGRESS
+| `crucible-ci` IAM role | Done | volley-infra PR #2096 — applied via Atlantis |
+| CloudFront distributions | Deferred | Not needed until production |
+| GitHub OIDC provider | Already exists | Shared org-wide resource |
+
+### Milestone 2B: Kubernetes Resources — COMPLETE (dev)
 
 | Resource | Status | Notes |
 |----------|--------|-------|
-| `crucible-dev` namespace | PR open | kubernetes PR #866 — namespace + RBAC + Flux sync |
-| Dev HelmRelease config | PR open | volley-infra-tenants PR #4273 — HelmRelease + ingress |
+| `crucible-dev` namespace | **Merged** | kubernetes PR #866 |
+| Dev HelmRelease config | **Merged** | volley-infra-tenants PR #4273 (nginx placeholder) |
 | `crucible-staging` namespace | Not started | |
 | `crucible-production` namespace | Not started | |
-| KEDA | Cluster-level, no per-app config needed | Verify with `kubectl get crd \| grep scaledobjects` |
-| Cilium | Cluster-level, no per-app config needed | Verify with `cilium status` |
 | DNS (`volley-services.net`) | Automatic via external-dns | Created from ingress annotations |
-| DNS (`volley.tv` / CloudFront) | Deferred | Not needed until production |
 
-### Milestone 2C: Registry API — NOT STARTED (depends on 2A)
-### Milestone 2D: Supporting Infrastructure — NOT STARTED (depends on 2A, 2B)
+### Milestone 2C: Registry API — SCAFFOLDED
+
+Lambda handlers implemented in `packages/crucible-registry/` (17 tests). Not yet deployed to API Gateway.
+
+| Handler | Route | Status |
+|---------|-------|--------|
+| get-games | `GET /games` | Implemented (public) |
+| get-game | `GET /games/:gameId` | Implemented (public) |
+| put-game | `PUT /games/:gameId` | Implemented (auth + optimistic concurrency) |
+| get-game-history | `GET /games/:gameId/history` | Implemented (auth) |
+| delete-game | `DELETE /games/:gameId` | Implemented (admin, soft-delete) |
+
+### Milestone 2D: Supporting Infrastructure — NOT STARTED
 
 ---
 
@@ -153,9 +186,10 @@ Depends on Phases 1 and 2. See `docs/development-plan.md`.
 
 ## Overall Stats
 
-- **Total tests:** 308 (36 test files)
-- **Typecheck:** Clean
+- **Total tests:** 349 (332 crucible + 17 registry, across 42 test files)
+- **Typecheck:** Clean (both packages)
 - **All commands registered:** No stubs remaining in index.ts
+- **Packages:** `@volley/crucible` (CLI) + `@volley/crucible-registry` (Lambda API)
 
 ## Documentation
 
@@ -175,5 +209,6 @@ Depends on Phases 1 and 2. See `docs/development-plan.md`.
 |----|------|------|--------|
 | ~~#2094~~ | volley-infra | CrucibleAdmin SSO permission set | **Merged** |
 | ~~#2096~~ | volley-infra | crucible-ci IAM role | **Merged + Applied** |
-| #866 | kubernetes | crucible-dev namespace + Flux sync | Ready to merge |
-| #4273 | volley-infra-tenants | crucible dev HelmRelease config | Ready to merge (after #866) |
+| ~~#866~~ | kubernetes | crucible-dev namespace + Flux sync | **Merged** |
+| ~~#4273~~ | volley-infra-tenants | crucible dev HelmRelease config | **Merged** |
+| ~~#3~~ | crucible | Prototype command + Registry API | **Merged** |
