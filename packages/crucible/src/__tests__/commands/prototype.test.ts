@@ -76,6 +76,9 @@ describe("registerPrototypeCommand", () => {
         expect(cmd).toBeDefined()
         expect(cmd!.description()).toBe("Deploy game to Kubernetes via Bifrost for prototype testing")
 
+        const sourceOpt = cmd!.options.find((o) => o.long === "--source")
+        expect(sourceOpt).toBeDefined()
+
         const watchOpt = cmd!.options.find((o) => o.long === "--watch")
         expect(watchOpt).toBeDefined()
 

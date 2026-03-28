@@ -73,25 +73,21 @@ export async function runPrototypeCommand(
     // Resolve GitHub repo URL for source-based builds
     const repoUrl = options.source ?? await resolveGitHubRepoUrl(gamePath)
 
+    if (!repoUrl) {
+        logger.warn("No git remote found and --source not provided. Using image-based deploy (requires Docker).")
+    }
+
     // Generate the GamePrototype CRD
     const crd = generateGamePrototypeCRD({
         gameId,
-        imageTag: "source-build",
+        ...(repoUrl
+            ? { sourceUrl: repoUrl, sourceRevision: "main" }
+            : { imageTag: "latest" }),
         registryHost: options.registry,
         port: options.port,
         websocket: true,
         dependencies: options.dependencies,
     })
-
-    // If we have a repo URL, use spec.source instead of spec.image
-    if (repoUrl) {
-        const spec = crd.spec as unknown as Record<string, unknown>
-        delete spec.image
-        spec.source = {
-            url: repoUrl,
-            revision: "main",
-        }
-    }
 
     // Write CRD to temp file and apply via kubectl
     const crdYaml = serializeGamePrototypeCRD(crd)
