@@ -61,9 +61,18 @@ export function generateGamePrototypeCRD(
     const websocket = options.websocket ?? DEFAULT_WEBSOCKET
 
     const spec: GamePrototypeCRD["spec"] = {
-        image: `${registryHost}/${options.gameId}:${options.imageTag}`,
         port,
         websocket,
+    }
+
+    // Mutually exclusive: source-based OR image-based
+    if (options.sourceUrl) {
+        spec.source = {
+            url: options.sourceUrl,
+            revision: options.sourceRevision ?? "main",
+        }
+    } else {
+        spec.image = `${registryHost}/${options.gameId}:${options.imageTag ?? "latest"}`
     }
 
     if (options.env && Object.keys(options.env).length > 0) {
@@ -93,7 +102,15 @@ export function serializeGamePrototypeCRD(crd: GamePrototypeCRD): string {
     yaml += `kind: ${crd.kind}\n`
     yaml += `metadata:\n  name: ${crd.metadata.name}\n`
     yaml += `spec:\n`
-    yaml += `  image: ${crd.spec.image}\n`
+    if (crd.spec.image) {
+        yaml += `  image: ${crd.spec.image}\n`
+    }
+    if (crd.spec.source) {
+        yaml += `  source:\n`
+        yaml += `    url: ${crd.spec.source.url}\n`
+        if (crd.spec.source.revision) yaml += `    revision: ${crd.spec.source.revision}\n`
+        if (crd.spec.source.subPath) yaml += `    subPath: ${crd.spec.source.subPath}\n`
+    }
     if (crd.spec.port) yaml += `  port: ${crd.spec.port}\n`
     if (crd.spec.websocket) yaml += `  websocket: true\n`
     if (crd.spec.env && Object.keys(crd.spec.env).length > 0) {

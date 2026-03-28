@@ -119,6 +119,26 @@ describe("serializeGamePrototypeCRD", () => {
         expect(yaml).toContain("      type: redis")
     })
 
+    it("generates source-based CRD without image field", () => {
+        const crd = generateGamePrototypeCRD({
+            gameId: "my-game",
+            sourceUrl: "https://github.com/Volley-Inc/crucible-game-my-game.git",
+            sourceRevision: "main",
+        })
+
+        expect(crd.spec.source).toEqual({
+            url: "https://github.com/Volley-Inc/crucible-game-my-game.git",
+            revision: "main",
+        })
+        expect(crd.spec.image).toBeUndefined()
+
+        const yaml = serializeGamePrototypeCRD(crd)
+        expect(yaml).toContain("  source:")
+        expect(yaml).toContain("    url: https://github.com/Volley-Inc/crucible-game-my-game.git")
+        expect(yaml).toContain("    revision: main")
+        expect(yaml).not.toContain("  image:")
+    })
+
     it("omits optional fields when not set", () => {
         const yaml = serializeGamePrototypeCRD({
             apiVersion: "volley.weekend.com/v1alpha1",

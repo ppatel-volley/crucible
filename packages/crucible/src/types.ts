@@ -294,8 +294,15 @@ export interface BifrostDependency {
     type: BifrostDependencyType
 }
 
+export interface BifrostSourceSpec {
+    url: string
+    revision?: string
+    subPath?: string
+}
+
 export interface GamePrototypeSpec {
-    image: string
+    image?: string
+    source?: BifrostSourceSpec
     port?: number
     websocket?: boolean
     env?: Record<string, string>
@@ -311,10 +318,12 @@ export interface GamePrototypeCRD {
 
 export interface PrototypeOptions {
     gameId: string
-    imageTag: string
-    registryHost?: string // default: "registry.prototypes.svc.cluster.local:5000"
-    port?: number // default: 3000
-    websocket?: boolean // default: true (VGF games use WebSocket)
+    imageTag?: string
+    sourceUrl?: string       // Git repo URL for source-based builds
+    sourceRevision?: string  // default: "main"
+    registryHost?: string    // default: "registry.prototypes.svc.cluster.local:5000"
+    port?: number            // default: 3000
+    websocket?: boolean      // default: true (VGF games use WebSocket)
     env?: Record<string, string>
     dependencies?: string // format: "name:type,name:type"
 }
