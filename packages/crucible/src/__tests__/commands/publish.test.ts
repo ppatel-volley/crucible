@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
 import { Command } from "commander"
-import { registerPublishCommand, runPublishCommand, runPreFlightChecks } from "../../commands/publish.js"
+import { registerPublishCommand, runPublishCommand, runPreFlightChecks, getPrototypeConfig } from "../../commands/publish.js"
 import type { CrucibleConfig, CruciblePaths, CrucibleJson } from "../../types.js"
 
 vi.mock("../../config/paths.js", () => ({
@@ -22,6 +22,10 @@ vi.mock("../../git/operations.js", () => ({
 
 vi.mock("../../git/validation.js", () => ({
     computeFileChecksum: vi.fn(),
+}))
+
+vi.mock("execa", () => ({
+    execa: vi.fn(),
 }))
 
 vi.mock("../../util/logger.js", () => ({
@@ -47,6 +51,7 @@ import { stat, readFile } from "node:fs/promises"
 import { createGitOperations } from "../../git/operations.js"
 import { computeFileChecksum } from "../../git/validation.js"
 import { CrucibleError } from "../../util/errors.js"
+import { execa } from "execa"
 
 const mockPaths: CruciblePaths = {
     configDir: "/tmp/crucible-config",
@@ -136,6 +141,17 @@ describe("registerPublishCommand", () => {
 
         const envOpt = publishCmd!.options.find((o) => o.long === "--env")
         expect(envOpt).toBeDefined()
+    })
+
+    it("registers the --from-prototype option", () => {
+        const program = new Command()
+        registerPublishCommand(program)
+
+        const publishCmd = program.commands.find((cmd) => cmd.name() === "publish")
+        expect(publishCmd).toBeDefined()
+
+        const protoOpt = publishCmd!.options.find((o) => o.long === "--from-prototype")
+        expect(protoOpt).toBeDefined()
     })
 })
 
@@ -245,5 +261,119 @@ describe("runPreFlightChecks", () => {
             expect((err as CrucibleError).code).toBe("CRUCIBLE-203")
             expect((err as CrucibleError).message).toContain("No GitHub remote configured")
         }
+    })
+})
+
+describe("getPrototypeConfig", () => {
+    afterEach(() => {
+        vi.restoreAllMocks()
+    })
+
+    it("queries Bifrost for prototype config via kubectl", async () => {
+        const kubectlResponse = {
+            status: { phase: "Running", hostname: "scottish-trivia.bifrost.dev" },
+            spec: {
+                port: 3000,
+                dependencies: { scores: { type: "postgres" }, cache: { type: "redis" } },
+                env: { STAGE: "dev", LOG_LEVEL: "info", GAME_MODE: "trivia" },
+            },
+        }
+        vi.mocked(execa).mockResolvedValue({ stdout: JSON.stringify(kubectlResponse) } as any)
+
+        const config = await getPrototypeConfig("scottish-trivia")
+        expect(config).not.toBeNull()
+        expect(config!.phase).toBe("Running")
+        expect(config!.port).toBe(3000)
+        expect(config!.hostname).toBe("scottish-trivia.bifrost.dev")
+        expect(config!.dependencies).toEqual({ scores: { type: "postgres" }, cache: { type: "redis" } })
+        expect(config!.env).toEqual({ STAGE: "dev", LOG_LEVEL: "info", GAME_MODE: "trivia" })
+        expect(execa).toHaveBeenCalledWith("kubectl", ["get", "gameprototype", "scottish-trivia", "-o", "json"])
+    })
+
+    it("returns null when kubectl fails", async () => {
+        vi.mocked(execa).mockRejectedValue(new Error("not found"))
+
+        const config = await getPrototypeConfig("nonexistent")
+        expect(config).toBeNull()
+    })
+})
+
+describe("runPublishCommand --from-prototype", () => {
+    beforeEach(() => {
+        setupMocks()
+    })
+
+    afterEach(() => {
+        vi.restoreAllMocks()
+    })
+
+    it("fails with CRUCIBLE-901 when no prototype exists", async () => {
+        vi.mocked(stat).mockResolvedValue({ isDirectory: () => true } as any)
+        setupPreFlightMocks()
+        vi.mocked(execa).mockRejectedValue(new Error("not found"))
+
+        try {
+            await runPublishCommand("my-game", { timeout: 10, env: "dev", fromPrototype: true })
+            expect.unreachable("Should have thrown")
+        } catch (err) {
+            expect(err).toBeInstanceOf(CrucibleError)
+            expect((err as CrucibleError).code).toBe("CRUCIBLE-901")
+            expect((err as CrucibleError).message).toContain("No Bifrost prototype found")
+        }
+    })
+
+    it("fails with CRUCIBLE-901 when prototype is not Running", async () => {
+        vi.mocked(stat).mockResolvedValue({ isDirectory: () => true } as any)
+        setupPreFlightMocks()
+        vi.mocked(execa).mockResolvedValue({
+            stdout: JSON.stringify({
+                status: { phase: "Pending" },
+                spec: { port: 3000, dependencies: {}, env: {} },
+            }),
+        } as any)
+
+        try {
+            await runPublishCommand("my-game", { timeout: 10, env: "dev", fromPrototype: true })
+            expect.unreachable("Should have thrown")
+        } catch (err) {
+            expect(err).toBeInstanceOf(CrucibleError)
+            expect((err as CrucibleError).code).toBe("CRUCIBLE-901")
+            expect((err as CrucibleError).message).toContain("Prototype is Pending, not Running")
+        }
+    })
+
+    it("shows graduation summary for a healthy prototype", async () => {
+        vi.mocked(stat).mockResolvedValue({ isDirectory: () => true } as any)
+        setupPreFlightMocks()
+
+        const kubectlResponse = {
+            status: { phase: "Running", hostname: "my-game.bifrost.dev" },
+            spec: {
+                port: 3000,
+                dependencies: { scores: { type: "postgres" }, cache: { type: "redis" } },
+                env: { STAGE: "dev", LOG_LEVEL: "info", GAME_MODE: "trivia" },
+            },
+        }
+        vi.mocked(execa).mockResolvedValue({ stdout: JSON.stringify(kubectlResponse) } as any)
+
+        const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {})
+
+        try {
+            await runPublishCommand("my-game", { timeout: 10, env: "dev", fromPrototype: true })
+            expect.unreachable("Should have thrown")
+        } catch (err) {
+            // Should eventually throw CRUCIBLE-501 (not yet implemented) after showing summary
+            expect(err).toBeInstanceOf(CrucibleError)
+            expect((err as CrucibleError).code).toBe("CRUCIBLE-501")
+        }
+
+        const output = consoleSpy.mock.calls.map((c) => c[0]).join("\n")
+        expect(output).toContain("Graduating prototype to production:")
+        expect(output).toContain("Port: 3000")
+        expect(output).toContain("scores (postgres)")
+        expect(output).toContain("cache (redis)")
+        expect(output).toContain("Env vars: 3")
+
+        consoleSpy.mockRestore()
     })
 })
