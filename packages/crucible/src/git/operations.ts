@@ -46,5 +46,13 @@ export function createGitOperations(): GitOperations {
             const remotes = await git.getRemotes()
             return remotes.some((r) => r.name === name)
         },
+
+        async getRemoteUrl(path: string, name: string): Promise<string> {
+            const git = simpleGit(path)
+            const remotes = await git.getRemotes(true)
+            const remote = remotes.find((r) => r.name === name)
+            if (!remote) throw new Error(`Remote "${name}" not found`)
+            return remote.refs.fetch || remote.refs.push
+        },
     }
 }
