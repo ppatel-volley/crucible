@@ -38,7 +38,7 @@ That's it. Three commands from idea to playable game.
 
 ### Prerequisites
 
-- **Node.js** 20 or later
+- **Node.js** 22 or later
 - **pnpm** 9 or later
 - **Git**
 - A **GitHub token** with repo access (`GITHUB_TOKEN` environment variable)
@@ -50,9 +50,16 @@ That's it. Three commands from idea to playable game.
 # From the crucible monorepo
 pnpm install
 
-# Verify it works
-npx crucible --help
+# Build and link as a global command
+cd packages/crucible
+pnpm build && npm link
+
+# Verify it works (from any directory)
+crucible --help
+crucible list
 ```
+
+After linking, `crucible` is available as a global command. You only need to re-run `pnpm build && npm link` when the CLI source code changes.
 
 ### Environment Variables
 
