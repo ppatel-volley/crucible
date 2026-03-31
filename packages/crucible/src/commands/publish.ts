@@ -9,13 +9,41 @@ import { computeFileChecksum } from "../git/validation.js"
 import { createLogger } from "../util/logger.js"
 import type { CrucibleJson } from "../types.js"
 
+export interface PrototypeConfig {
+    phase: string
+    port: number
+    hostname: string
+    dependencies: Record<string, { type: string }>
+    env: Record<string, string>
+}
+
+export async function getPrototypeConfig(gameId: string): Promise<PrototypeConfig | null> {
+    const { execa } = await import("execa")
+    try {
+        const result = await execa("kubectl", [
+            "get", "gameprototype", gameId, "-o", "json",
+        ])
+        const obj = JSON.parse(result.stdout)
+        return {
+            phase: obj.status?.phase ?? "Unknown",
+            port: obj.spec?.port ?? 3000,
+            hostname: obj.status?.hostname ?? "",
+            dependencies: obj.spec?.dependencies ?? {},
+            env: obj.spec?.env ?? {},
+        }
+    } catch {
+        return null
+    }
+}
+
 export function registerPublishCommand(program: Command): void {
     program
         .command("publish <game-id>")
         .description("Publish game to registry — pushes to GitHub and monitors CI pipeline")
         .option("--timeout <minutes>", "CI polling timeout in minutes", parseInt, 10)
         .option("--env <environment>", "Target environment", "dev")
-        .action(async (gameId: string, options: { timeout: number; env: string }) => {
+        .option("--from-prototype", "Graduate from Bifrost prototype to production", false)
+        .action(async (gameId: string, options: { timeout: number; env: string; fromPrototype: boolean }) => {
             await runPublishCommand(gameId, options)
         })
 }
@@ -69,7 +97,7 @@ export async function runPreFlightChecks(gamePath: string): Promise<void> {
 
 export async function runPublishCommand(
     gameId: string,
-    options: { timeout: number; env: string },
+    options: { timeout: number; env: string; fromPrototype?: boolean },
 ): Promise<void> {
     const paths = resolvePaths()
     const config = await loadConfig(paths)
@@ -95,6 +123,31 @@ export async function runPublishCommand(
     const spinner = logger.spinner("Running pre-flight checks...")
     await runPreFlightChecks(gamePath)
     spinner.succeed("Pre-flight checks passed")
+
+    // Graduation path
+    if (options.fromPrototype) {
+        const proto = await getPrototypeConfig(gameId)
+        if (!proto) {
+            throw usageError("CRUCIBLE-901", `No Bifrost prototype found for "${gameId}"`, "Deploy a prototype first with `crucible prototype`.")
+        }
+        if (proto.phase !== "Running") {
+            throw usageError("CRUCIBLE-901", `Prototype is ${proto.phase}, not Running`, "Wait for the prototype to be healthy before graduating.")
+        }
+
+        // Show graduation summary
+        console.log("")
+        console.log("  Graduating prototype to production:")
+        console.log(`    Port: ${proto.port}`)
+        if (Object.keys(proto.dependencies).length > 0) {
+            const depSummary = Object.entries(proto.dependencies).map(([k, v]) => `${k} (${v.type})`).join(", ")
+            console.log(`    Dependencies: ${depSummary}`)
+        }
+        const envCount = Object.keys(proto.env).length
+        if (envCount > 0) {
+            console.log(`    Env vars: ${envCount}`)
+        }
+        console.log("")
+    }
 
     // TODO: git push + CI polling (Phase 2)
     throw networkError("CRUCIBLE-501", "CI pipeline integration is not yet implemented", "This command will be available after Phase 2 infrastructure is provisioned.")

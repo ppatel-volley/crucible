@@ -126,13 +126,17 @@ Bifrost operator deployed to shared-k8s-dev with all shared infrastructure runni
 | Tictactoe sample | **Working** | End-to-end smoke test with Postgres + S3 dependencies |
 | SSH deploy key support | **Working** | For private repos |
 
-### Crucible Prototype Modules — COMPLETE (deploy flow in progress)
+### Crucible ↔ Bifrost Integration Modules — COMPLETE
 
-| Module | Status | Tests |
-|--------|--------|-------|
-| CRD generator (`prototype/crd.ts`) | Done | 9 |
-| Registry push (`prototype/registry.ts`) | Done | 9 |
-| `crucible prototype` command | Scaffold done, deploy flow wiring in progress | 6 |
+| Module | Status | Tests | Notes |
+|--------|--------|-------|-------|
+| CRD generator (`prototype/crd.ts`) | Done | 10 | Image-based and source-based modes |
+| Registry push (`prototype/registry.ts`) | Done | 9 | Docker tag + push |
+| `crucible prototype` command | Done | 7 | Source-based builds, status polling, delete |
+| `crucible status` with Bifrost | Done | 8 | Prototype tier: phase, hostname, deps |
+| `crucible publish --from-prototype` | Done | 5 | Graduation: reads prototype config, shows summary |
+
+Bifrost integration handoff PR: [bifrost#8](https://github.com/Volley-Inc/bifrost/pull/8)
 
 ---
 
@@ -186,7 +190,7 @@ Depends on Phases 1 and 2. See `docs/development-plan.md`.
 
 ## Overall Stats
 
-- **Total tests:** 349 (332 crucible + 17 registry, across 42 test files)
+- **Total tests:** 365 (348 crucible + 17 registry, across 43 test files)
 - **Typecheck:** Clean (both packages)
 - **All commands registered:** No stubs remaining in index.ts
 - **Packages:** `@volley/crucible` (CLI) + `@volley/crucible-registry` (Lambda API)
