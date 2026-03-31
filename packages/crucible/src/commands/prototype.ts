@@ -81,6 +81,9 @@ export async function runPrototypeCommand(
         logger.warn("No git remote found and --source not provided. Using image-based deploy (requires Docker).")
     }
 
+    // Auto-generate ingress hostname if not provided
+    const ingressHostname = options.ingress ?? `${gameId}.volley-services.net`
+
     // Generate the GamePrototype CRD
     const crd = generateGamePrototypeCRD({
         gameId,
@@ -90,9 +93,14 @@ export async function runPrototypeCommand(
         registryHost: options.registry,
         port: options.port,
         websocketPort: options.wsPort,
-        ingressHostname: options.ingress,
+        ingressHostname,
         dependencies: options.dependencies,
     })
+
+    // Add secretRef for SSH deploy key when using source-based builds
+    if (crd.spec.source && !crd.spec.source.secretRef) {
+        crd.spec.source.secretRef = { name: "bifrost-deploy-key" }
+    }
 
     // Write CRD to temp file and apply via kubectl
     const crdYaml = serializeGamePrototypeCRD(crd)
@@ -105,7 +113,8 @@ export async function runPrototypeCommand(
 
         // Poll for status
         const statusSpinner = logger.spinner("Waiting for Bifrost...")
-        const status = await pollPrototypeStatus(gameId, 120)
+        // Buildpack cold starts can take 3-5 minutes
+        const status = await pollPrototypeStatus(gameId, 300)
         statusSpinner.succeed(`Prototype ${status.phase.toLowerCase()}`)
 
         // Print result
@@ -180,14 +189,29 @@ async function kubectlApply(filePath: string): Promise<void> {
 }
 
 /**
+ * Convert an HTTPS GitHub URL to SSH format.
+ * Bifrost's build pods currently only support SSH with deploy keys.
+ * e.g. https://github.com/Volley-Inc/my-repo.git -> git@github.com:Volley-Inc/my-repo.git
+ */
+function toSshUrl(url: string): string {
+    const httpsMatch = url.match(/https?:\/\/github\.com\/([^/]+)\/([^/.]+)(\.git)?/)
+    if (httpsMatch) {
+        return `git@github.com:${httpsMatch[1]}/${httpsMatch[2]}.git`
+    }
+    // Already SSH or unknown format — return as-is
+    return url
+}
+
+/**
  * Resolve the GitHub remote URL from the game's git config.
+ * Converts to SSH format since Bifrost requires SSH + deploy key.
  */
 async function resolveGitHubRepoUrl(gamePath: string): Promise<string | null> {
     const { execa } = await import("execa")
     try {
         const result = await execa("git", ["remote", "get-url", "origin"], { cwd: gamePath })
         const url = result.stdout.trim()
-        if (url) return url
+        if (url) return toSshUrl(url)
     } catch {
         // No remote — that's fine, will need --source or image-based deploy
     }
