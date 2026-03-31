@@ -62,13 +62,35 @@ export async function createGameRepo(octokit: Octokit, options: CreateRepoOption
     }
 
     try {
-        const { data } = await octokit.repos.createInOrg({
-            org: options.org,
-            name: repoName,
-            description: `${options.displayName} — a Crucible TV game`,
-            private: true,
-            auto_init: false,
-        })
+        let data: { clone_url: string; html_url: string; full_name: string }
+
+        try {
+            const orgResult = await octokit.repos.createInOrg({
+                org: options.org,
+                name: repoName,
+                description: `${options.displayName} — a Crucible TV game`,
+                private: true,
+                auto_init: false,
+            })
+            data = orgResult.data
+        } catch (orgErr: unknown) {
+            // If org doesn't exist (personal account), create under authenticated user
+            const is404 =
+                orgErr instanceof Error &&
+                "status" in orgErr &&
+                (orgErr as { status: number }).status === 404
+            if (!is404) {
+                throw orgErr
+            }
+
+            const userResult = await octokit.repos.createForAuthenticatedUser({
+                name: repoName,
+                description: `${options.displayName} — a Crucible TV game`,
+                private: true,
+                auto_init: false,
+            })
+            data = userResult.data
+        }
 
         // Try to apply rulesets (best-effort — may fail without admin perms)
         await applyProtectionRulesets(octokit, options.org, repoName).catch(() => {})

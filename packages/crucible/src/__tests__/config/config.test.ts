@@ -58,4 +58,26 @@ describe("config read/write", () => {
         expect(updated.agentModel).toBe("claude-opus-4-20250514")
         expect(updated.githubOrg).toBe(DEFAULT_CONFIG.githubOrg)
     })
+
+    it("loadConfig normalises Windows backslash paths to forward slashes", async () => {
+        const configWithBackslashes = {
+            ...DEFAULT_CONFIG,
+            gamesDir: "C:\\Users\\dev\\games",
+            templateSource: { type: "local" as const, path: "C:\\templates\\hello-weekend" },
+        }
+        await saveConfig(paths, configWithBackslashes)
+        const loaded = await loadConfig(paths)
+        expect(loaded.gamesDir).toBe("C:/Users/dev/games")
+        expect(loaded.templateSource).toEqual({ type: "local", path: "C:/templates/hello-weekend" })
+    })
+
+    it("loadConfig leaves forward-slash paths unchanged", async () => {
+        const configWithSlashes = {
+            ...DEFAULT_CONFIG,
+            gamesDir: "/home/dev/games",
+        }
+        await saveConfig(paths, configWithSlashes)
+        const loaded = await loadConfig(paths)
+        expect(loaded.gamesDir).toBe("/home/dev/games")
+    })
 })

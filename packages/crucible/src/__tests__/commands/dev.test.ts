@@ -29,6 +29,10 @@ vi.mock("node:fs/promises", () => ({
     stat: vi.fn(),
 }))
 
+vi.mock("execa", () => ({
+    execa: vi.fn().mockResolvedValue({ stdout: "", stderr: "" }),
+}))
+
 import { startDevSession, stopDevSession } from "../../dev/orchestrator.js"
 import { resolvePaths } from "../../config/paths.js"
 import { loadConfig } from "../../config/config.js"
@@ -164,6 +168,28 @@ describe("runDevCommand", () => {
 
         await vi.waitFor(() => {
             expect(setupSignalHandlers).toHaveBeenCalledWith(expect.any(Function))
+        })
+    })
+
+    it("prints display and controller URLs with sessionId query param", async () => {
+        vi.mocked(stat).mockResolvedValue({ isDirectory: () => true } as any)
+        vi.mocked(startDevSession).mockResolvedValue(mockSession)
+
+        const promise = runDevCommand("my-game", {})
+
+        await vi.waitFor(() => {
+            const logger = vi.mocked(createLogger).mock.results[0]?.value
+            expect(logger).toBeDefined()
+            const infoCalls = logger.info.mock.calls.map((c: string[]) => c[0])
+            expect(infoCalls).toContainEqual(
+                expect.stringContaining("http://127.0.0.1:3000?sessionId=dev-test"),
+            )
+            expect(infoCalls).toContainEqual(
+                expect.stringContaining("http://127.0.0.1:5174?sessionId=dev-test"),
+            )
+            // Server URL should NOT have sessionId
+            const serverLine = infoCalls.find((l: string) => l.includes("Server:"))
+            expect(serverLine).not.toContain("sessionId")
         })
     })
 
