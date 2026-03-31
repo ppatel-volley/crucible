@@ -50,6 +50,17 @@ export async function runDevCommand(
     if (options.portDisplay) portOverrides.display = options.portDisplay
     if (options.portController) portOverrides.controller = options.portController
 
+    // Build shared package before starting dev (needed for TypeScript compilation)
+    const buildSpinner = logger.spinner("Building shared package...")
+    try {
+        const { execa } = await import("execa")
+        await execa("pnpm", ["--filter", "*/shared", "build"], { cwd: gamePath })
+        buildSpinner.succeed("Shared package built")
+    } catch {
+        buildSpinner.fail("Failed to build shared package")
+        logger.warn("Shared package build failed. Dev server may not work correctly.")
+    }
+
     const spinner = logger.spinner("Starting dev server...")
 
     const session = await startDevSession({
@@ -60,8 +71,8 @@ export async function runDevCommand(
 
     spinner.succeed("Dev server running")
     logger.info(`  Server:     http://127.0.0.1:${session.ports.server}`)
-    logger.info(`  Display:    http://127.0.0.1:${session.ports.display}`)
-    logger.info(`  Controller: http://127.0.0.1:${session.ports.controller}`)
+    logger.info(`  Display:    http://127.0.0.1:${session.ports.display}?sessionId=dev-test`)
+    logger.info(`  Controller: http://127.0.0.1:${session.ports.controller}?sessionId=dev-test`)
     logger.info(`  Health:     http://127.0.0.1:${session.ports.server}/${gameId}/health`)
     logger.info("")
     logger.info("Press q or Ctrl+C to stop.")

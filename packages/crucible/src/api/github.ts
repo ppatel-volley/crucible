@@ -48,29 +48,52 @@ export async function createGameRepo(octokit: Octokit, options: CreateRepoOption
 
     const exists = await repoExists(octokit, options.org, repoName)
     if (exists) {
-        throw gitError(
-            "CRUCIBLE-201",
-            `Repository ${options.org}/${repoName} already exists`,
-            "Choose a different game name or delete the existing repository.",
-        )
+        // Repo already exists — reuse it (e.g. from a previous failed create attempt)
+        const { data } = await octokit.repos.get({ owner: options.org, repo: repoName })
+
+        // Try to apply rulesets (best-effort — may fail without admin perms)
+        await applyProtectionRulesets(octokit, options.org, repoName).catch(() => {})
+
+        return {
+            cloneUrl: data.clone_url,
+            htmlUrl: data.html_url,
+            fullName: data.full_name,
+        }
     }
 
     try {
-        const { data } = await octokit.repos.createInOrg({
-            org: options.org,
-            name: repoName,
-            description: `${options.displayName} — a Crucible TV game`,
-            private: true,
-            auto_init: false,
-        })
+        let data: { clone_url: string; html_url: string; full_name: string }
 
         try {
-            await applyProtectionRulesets(octokit, options.org, repoName)
-        } catch (rulesetErr) {
-            // Ruleset failed after repo creation — clean up the orphan repo
-            await octokit.repos.delete({ owner: options.org, repo: repoName }).catch(() => {})
-            throw rulesetErr
+            const orgResult = await octokit.repos.createInOrg({
+                org: options.org,
+                name: repoName,
+                description: `${options.displayName} — a Crucible TV game`,
+                private: true,
+                auto_init: false,
+            })
+            data = orgResult.data
+        } catch (orgErr: unknown) {
+            // If org doesn't exist (personal account), create under authenticated user
+            const is404 =
+                orgErr instanceof Error &&
+                "status" in orgErr &&
+                (orgErr as { status: number }).status === 404
+            if (!is404) {
+                throw orgErr
+            }
+
+            const userResult = await octokit.repos.createForAuthenticatedUser({
+                name: repoName,
+                description: `${options.displayName} — a Crucible TV game`,
+                private: true,
+                auto_init: false,
+            })
+            data = userResult.data
         }
+
+        // Try to apply rulesets (best-effort — may fail without admin perms)
+        await applyProtectionRulesets(octokit, options.org, repoName).catch(() => {})
 
         return {
             cloneUrl: data.clone_url,

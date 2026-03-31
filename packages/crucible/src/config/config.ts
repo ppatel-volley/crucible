@@ -7,7 +7,17 @@ import { validateConfig, DEFAULT_CONFIG } from "./schema.js"
 export async function loadConfig(paths: CruciblePaths): Promise<CrucibleConfig> {
     try {
         const raw = await readFile(paths.configFile, "utf-8")
-        return validateConfig(JSON.parse(raw))
+        const config = validateConfig(JSON.parse(raw))
+
+        // Normalise Windows backslash paths to forward slashes
+        if (config.templateSource?.type === "local" && config.templateSource.path) {
+            config.templateSource.path = config.templateSource.path.replace(/\\/g, "/")
+        }
+        if (config.gamesDir) {
+            config.gamesDir = config.gamesDir.replace(/\\/g, "/")
+        }
+
+        return config
     } catch (err: unknown) {
         if (err instanceof Error && "code" in err && (err as NodeJS.ErrnoException).code === "ENOENT") {
             return { ...DEFAULT_CONFIG }
