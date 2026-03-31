@@ -48,11 +48,17 @@ export async function createGameRepo(octokit: Octokit, options: CreateRepoOption
 
     const exists = await repoExists(octokit, options.org, repoName)
     if (exists) {
-        throw gitError(
-            "CRUCIBLE-201",
-            `Repository ${options.org}/${repoName} already exists`,
-            "Choose a different game name or delete the existing repository.",
-        )
+        // Repo already exists — reuse it (e.g. from a previous failed create attempt)
+        const { data } = await octokit.repos.get({ owner: options.org, repo: repoName })
+
+        // Try to apply rulesets (best-effort — may fail without admin perms)
+        await applyProtectionRulesets(octokit, options.org, repoName).catch(() => {})
+
+        return {
+            cloneUrl: data.clone_url,
+            htmlUrl: data.html_url,
+            fullName: data.full_name,
+        }
     }
 
     try {
@@ -64,13 +70,8 @@ export async function createGameRepo(octokit: Octokit, options: CreateRepoOption
             auto_init: false,
         })
 
-        try {
-            await applyProtectionRulesets(octokit, options.org, repoName)
-        } catch (rulesetErr) {
-            // Ruleset failed after repo creation — clean up the orphan repo
-            await octokit.repos.delete({ owner: options.org, repo: repoName }).catch(() => {})
-            throw rulesetErr
-        }
+        // Try to apply rulesets (best-effort — may fail without admin perms)
+        await applyProtectionRulesets(octokit, options.org, repoName).catch(() => {})
 
         return {
             cloneUrl: data.clone_url,

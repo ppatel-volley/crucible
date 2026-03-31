@@ -420,3 +420,9 @@ Every original learning mapped to its amalgamated file:
 | Original | Amalgamated |
 |---|---|
 | TR-043 | [049](./049-vgf-project-scaffolding.md) |
+
+### Crucible (new)
+
+| # | Learning |
+|---|---------|
+| [050](./050-create-dev-out-of-box-issues.md) | 8 issues found in first real create→dev flow: nested node_modules filter, Windows paths, shared package build, tsconfig skipLibCheck, JSON log readiness, personal GitHub accounts, ruleset perms, NPM_TOKEN warning |

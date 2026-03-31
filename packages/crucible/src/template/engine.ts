@@ -69,8 +69,9 @@ export async function cloneTemplate(
             recursive: true,
             filter: (src) => {
                 const rel = relative(source.path, src)
-                const topLevel = rel.split(/[\\/]/)[0]
-                return topLevel !== ".git" && topLevel !== "node_modules" && topLevel !== "dist"
+                const segments = rel.split(/[\\/]/)
+                // Exclude .git, node_modules, and dist at ANY depth
+                return !segments.includes(".git") && !segments.includes("node_modules") && !segments.includes("dist")
             },
         })
     } else {
