@@ -110,9 +110,9 @@ OIDC login flow built and ready for SSO config values.
 
 ---
 
-## Bifrost Integration — LIVE ON DEV CLUSTER
+## Bifrost Integration — FIRST PROTOTYPE DEPLOYMENT LIVE
 
-Bifrost operator deployed to shared-k8s-dev with all shared infrastructure running. Phase 2 (Buildpacks) feature-complete.
+Bifrost operator deployed to shared-k8s-dev with all shared infrastructure running. Phase 2 (Buildpacks) feature-complete. **First Crucible game deployed to Bifrost: Space Invaders running at `space-invaders.volley-services.net`.**
 
 | Component | Status | Notes |
 |-----------|--------|-------|
@@ -125,6 +125,7 @@ Bifrost operator deployed to shared-k8s-dev with all shared infrastructure runni
 | `spec.image` (pre-built) | **Working** | Push image to in-cluster registry, reference in CRD |
 | Tictactoe sample | **Working** | End-to-end smoke test with Postgres + S3 dependencies |
 | SSH deploy key support | **Working** | For private repos |
+| **Space Invaders prototype** | **LIVE** | First Crucible deployment — pod running, ingress live, all conditions green at `space-invaders.volley-services.net` |
 
 ### Crucible ↔ Bifrost Integration Modules — COMPLETE
 
@@ -135,6 +136,8 @@ Bifrost operator deployed to shared-k8s-dev with all shared infrastructure runni
 | `crucible prototype` command | Done | 7 | Source-based builds, status polling, delete |
 | `crucible status` with Bifrost | Done | 8 | Prototype tier: phase, hostname, deps |
 | `crucible publish --from-prototype` | Done | 5 | Graduation: reads prototype config, shows summary |
+
+**Milestone achieved (2026-03-31):** First Crucible-managed game deployed to Bifrost. Space Invaders prototype running at `space-invaders.volley-services.net` — pod healthy, ingress live, all CRD conditions green. Lessons learned: DNS resolution needed VPN reconnect, ALB took ~1 minute to stabilise after ingress creation.
 
 Bifrost integration handoff PR: [bifrost#8](https://github.com/Volley-Inc/bifrost/pull/8)
 
@@ -190,7 +193,7 @@ Depends on Phases 1 and 2. See `docs/development-plan.md`.
 
 ## Overall Stats
 
-- **Total tests:** 365 (348 crucible + 17 registry, across 43 test files)
+- **Total tests:** 374 (357 crucible + 17 registry, across 43 test files)
 - **Typecheck:** Clean (both packages)
 - **All commands registered:** No stubs remaining in index.ts
 - **Packages:** `@volley/crucible` (CLI) + `@volley/crucible-registry` (Lambda API)
