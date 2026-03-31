@@ -16,6 +16,7 @@ export function registerPrototypeCommand(program: Command): void {
         .option("--dependencies <deps>", "Infrastructure dependencies (name:type,name:type)")
         .option("--delete", "Remove the prototype and clean up resources", false)
         .option("--source <repo>", "Git repo URL for source-based build (Bifrost Buildpacks)")
+        .option("--subpath <path>", "Subdirectory within the repo (for monorepos)")
         .option("--registry <host>", "Bifrost registry host", "bifrost-registry.volley-services.net")
         .option("--port <port>", "Container port", parseInt, 3000)
         .option("--ws-port <port>", "WebSocket port (for VGF games)", parseInt)
@@ -32,6 +33,7 @@ export async function runPrototypeCommand(
         dependencies?: string
         delete: boolean
         source?: string
+        subpath?: string
         registry: string
         port: number
         wsPort?: number
@@ -98,8 +100,13 @@ export async function runPrototypeCommand(
     })
 
     // Add secretRef for SSH deploy key when using source-based builds
-    if (crd.spec.source && !crd.spec.source.secretRef) {
-        crd.spec.source.secretRef = { name: "bifrost-deploy-key" }
+    if (crd.spec.source) {
+        if (!crd.spec.source.secretRef) {
+            crd.spec.source.secretRef = { name: "bifrost-deploy-key" }
+        }
+        if (options.subpath) {
+            crd.spec.source.subPath = options.subpath
+        }
     }
 
     // Write CRD to temp file and apply via kubectl
