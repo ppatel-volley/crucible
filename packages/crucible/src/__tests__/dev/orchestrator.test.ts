@@ -226,6 +226,77 @@ describe("orchestrator", () => {
             expect(mockAllocateDevPorts).toHaveBeenCalledWith(customPorts)
         })
 
+        it("detects server readiness from VGF/pino JSON logs", async () => {
+            // Override server process to emit JSON log instead of plain text
+            const jsonServerProc = createMockProcess(1001, "server")
+            const originalEmitReady = jsonServerProc.emitReady
+            jsonServerProc.emitReady = () => {
+                jsonServerProc.stdout.emit("data", Buffer.from(
+                    '{"level":30,"time":1774944366507,"msg":"Trivia Royale dev server started"}\n',
+                ))
+            }
+            mockProcesses[0] = jsonServerProc
+
+            let execaCallCount = 0
+            mockExeca.mockImplementation(() => {
+                const proc = mockProcesses[execaCallCount]!
+                execaCallCount++
+                setTimeout(() => proc.emitReady(), 10)
+                return proc
+            })
+
+            const { startDevSession } = await import("../../dev/orchestrator.js")
+
+            const session = await startDevSession({ gamePath: "/tmp/game", gameId: "test-game" })
+
+            expect(session.ports).toEqual(DEFAULT_TEST_PORTS)
+            expect(session.pids.server).toBe(1001)
+        })
+
+        it("detects server readiness from 'listening on' variant", async () => {
+            const listenProc = createMockProcess(1001, "server")
+            listenProc.emitReady = () => {
+                listenProc.stdout.emit("data", Buffer.from("HTTP server listening on port 8090\n"))
+            }
+            mockProcesses[0] = listenProc
+
+            let execaCallCount = 0
+            mockExeca.mockImplementation(() => {
+                const proc = mockProcesses[execaCallCount]!
+                execaCallCount++
+                setTimeout(() => proc.emitReady(), 10)
+                return proc
+            })
+
+            const { startDevSession } = await import("../../dev/orchestrator.js")
+
+            const session = await startDevSession({ gamePath: "/tmp/game", gameId: "test-game" })
+
+            expect(session.pids.server).toBe(1001)
+        })
+
+        it("detects server readiness from standalone 'server started' text", async () => {
+            const startedProc = createMockProcess(1001, "server")
+            startedProc.emitReady = () => {
+                startedProc.stdout.emit("data", Buffer.from("Game server started successfully\n"))
+            }
+            mockProcesses[0] = startedProc
+
+            let execaCallCount = 0
+            mockExeca.mockImplementation(() => {
+                const proc = mockProcesses[execaCallCount]!
+                execaCallCount++
+                setTimeout(() => proc.emitReady(), 10)
+                return proc
+            })
+
+            const { startDevSession } = await import("../../dev/orchestrator.js")
+
+            const session = await startDevSession({ gamePath: "/tmp/game", gameId: "test-game" })
+
+            expect(session.pids.server).toBe(1001)
+        })
+
         it("skips empty lines when piping output", async () => {
             const { startDevSession } = await import("../../dev/orchestrator.js")
 
