@@ -9,11 +9,11 @@ const VALID_DEPENDENCY_TYPES: ReadonlySet<string> = new Set<string>([
     "postgres",
     "redis",
     "s3",
+    "dynamodb",
 ])
 
-const DEFAULT_REGISTRY_HOST = "registry.prototypes.svc.cluster.local:5000"
+const DEFAULT_REGISTRY_HOST = "bifrost-registry.volley-services.net"
 const DEFAULT_PORT = 3000
-const DEFAULT_WEBSOCKET = true
 
 /**
  * Parse a dependencies string like "scores:postgres,cache:redis,assets:s3"
@@ -40,7 +40,7 @@ export function parseDependencies(
 
         if (!VALID_DEPENDENCY_TYPES.has(type)) {
             throw new Error(
-                `Invalid dependency type: "${type}". Must be one of: postgres, redis, s3.`,
+                `Invalid dependency type: "${type}". Must be one of: postgres, redis, s3, dynamodb.`,
             )
         }
 
@@ -58,11 +58,17 @@ export function generateGamePrototypeCRD(
 ): GamePrototypeCRD {
     const registryHost = options.registryHost ?? DEFAULT_REGISTRY_HOST
     const port = options.port ?? DEFAULT_PORT
-    const websocket = options.websocket ?? DEFAULT_WEBSOCKET
 
     const spec: GamePrototypeCRD["spec"] = {
         port,
-        websocket,
+    }
+
+    if (options.websocketPort) {
+        spec.websocketPort = options.websocketPort
+    }
+
+    if (options.ingressHostname) {
+        spec.ingress = { hostname: options.ingressHostname }
     }
 
     // Mutually exclusive: source-based OR image-based
@@ -87,7 +93,7 @@ export function generateGamePrototypeCRD(
     }
 
     return {
-        apiVersion: "volley.weekend.com/v1alpha1",
+        apiVersion: "weekend.com/v1alpha1",
         kind: "GamePrototype",
         metadata: { name: options.gameId },
         spec,
@@ -112,7 +118,12 @@ export function serializeGamePrototypeCRD(crd: GamePrototypeCRD): string {
         if (crd.spec.source.subPath) yaml += `    subPath: ${crd.spec.source.subPath}\n`
     }
     if (crd.spec.port) yaml += `  port: ${crd.spec.port}\n`
-    if (crd.spec.websocket) yaml += `  websocket: true\n`
+    if (crd.spec.websocketPort) yaml += `  websocketPort: ${crd.spec.websocketPort}\n`
+    if (crd.spec.ingress) {
+        yaml += `  ingress:\n`
+        yaml += `    hostname: ${crd.spec.ingress.hostname}\n`
+        if (crd.spec.ingress.visibility) yaml += `    visibility: ${crd.spec.ingress.visibility}\n`
+    }
     if (crd.spec.env && Object.keys(crd.spec.env).length > 0) {
         yaml += `  env:\n`
         for (const [key, value] of Object.entries(crd.spec.env)) {

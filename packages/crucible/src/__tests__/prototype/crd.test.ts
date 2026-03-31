@@ -40,19 +40,19 @@ describe("generateGamePrototypeCRD", () => {
             imageTag: "abc123",
             registryHost: "my-registry.io",
             port: 8080,
-            websocket: false,
+            websocketPort: 8091,
             env: { NODE_ENV: "production", DEBUG: "true" },
             dependencies: "scores:postgres,cache:redis,assets:s3",
         })
 
         expect(crd).toEqual({
-            apiVersion: "volley.weekend.com/v1alpha1",
+            apiVersion: "weekend.com/v1alpha1",
             kind: "GamePrototype",
             metadata: { name: "my-game" },
             spec: {
                 image: "my-registry.io/my-game:abc123",
                 port: 8080,
-                websocket: false,
+                websocketPort: 8091,
                 env: { NODE_ENV: "production", DEBUG: "true" },
                 dependencies: {
                     scores: { type: "postgres" },
@@ -70,10 +70,10 @@ describe("generateGamePrototypeCRD", () => {
         })
 
         expect(crd.spec.image).toBe(
-            "registry.prototypes.svc.cluster.local:5000/test-game:v1",
+            "bifrost-registry.volley-services.net/test-game:v1",
         )
         expect(crd.spec.port).toBe(3000)
-        expect(crd.spec.websocket).toBe(true)
+        expect(crd.spec.websocketPort).toBeUndefined()
         expect(crd.spec.env).toBeUndefined()
         expect(crd.spec.dependencies).toBeUndefined()
     })
@@ -97,21 +97,21 @@ describe("serializeGamePrototypeCRD", () => {
             gameId: "my-game",
             imageTag: "abc123",
             port: 3000,
-            websocket: true,
+            
             env: { NODE_ENV: "production" },
             dependencies: "scores:postgres,cache:redis",
         })
 
         const yaml = serializeGamePrototypeCRD(crd)
 
-        expect(yaml).toContain("apiVersion: volley.weekend.com/v1alpha1")
+        expect(yaml).toContain("apiVersion: weekend.com/v1alpha1")
         expect(yaml).toContain("kind: GamePrototype")
         expect(yaml).toContain("  name: my-game")
         expect(yaml).toContain(
-            "  image: registry.prototypes.svc.cluster.local:5000/my-game:abc123",
+            "  image: bifrost-registry.volley-services.net/my-game:abc123",
         )
         expect(yaml).toContain("  port: 3000")
-        expect(yaml).toContain("  websocket: true")
+        expect(yaml).not.toContain("websocket")
         expect(yaml).toContain('    NODE_ENV: "production"')
         expect(yaml).toContain("    scores:")
         expect(yaml).toContain("      type: postgres")
@@ -141,7 +141,7 @@ describe("serializeGamePrototypeCRD", () => {
 
     it("omits optional fields when not set", () => {
         const yaml = serializeGamePrototypeCRD({
-            apiVersion: "volley.weekend.com/v1alpha1",
+            apiVersion: "weekend.com/v1alpha1",
             kind: "GamePrototype",
             metadata: { name: "minimal-game" },
             spec: {
@@ -149,7 +149,7 @@ describe("serializeGamePrototypeCRD", () => {
             },
         })
 
-        expect(yaml).toContain("apiVersion: volley.weekend.com/v1alpha1")
+        expect(yaml).toContain("apiVersion: weekend.com/v1alpha1")
         expect(yaml).toContain("kind: GamePrototype")
         expect(yaml).toContain("  name: minimal-game")
         expect(yaml).toContain("  image: registry.local/minimal-game:v1")

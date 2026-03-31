@@ -112,7 +112,7 @@ describe("runPrototypeCommand", () => {
             runPrototypeCommand("nonexistent-game", {
                 watch: false,
                 delete: false,
-                registry: "registry.prototypes.svc.cluster.local:5000",
+                registry: "bifrost-registry.volley-services.net",
                 port: 3000,
             }),
         ).rejects.toThrow(CrucibleError)
@@ -121,7 +121,7 @@ describe("runPrototypeCommand", () => {
             runPrototypeCommand("nonexistent-game", {
                 watch: false,
                 delete: false,
-                registry: "registry.prototypes.svc.cluster.local:5000",
+                registry: "bifrost-registry.volley-services.net",
                 port: 3000,
             }),
         ).rejects.toThrow(/Game "nonexistent-game" not found/)
@@ -134,7 +134,7 @@ describe("runPrototypeCommand", () => {
         await runPrototypeCommand("my-game", {
             watch: false,
             delete: true,
-            registry: "registry.prototypes.svc.cluster.local:5000",
+            registry: "bifrost-registry.volley-services.net",
             port: 3000,
         })
 
@@ -154,7 +154,7 @@ describe("runPrototypeCommand", () => {
             runPrototypeCommand("my-game", {
                 watch: false,
                 delete: true,
-                registry: "registry.prototypes.svc.cluster.local:5000",
+                registry: "bifrost-registry.volley-services.net",
                 port: 3000,
             }),
         ).rejects.toThrow(CrucibleError)
@@ -164,7 +164,7 @@ describe("runPrototypeCommand", () => {
             await runPrototypeCommand("my-game", {
                 watch: false,
                 delete: true,
-                registry: "registry.prototypes.svc.cluster.local:5000",
+                registry: "bifrost-registry.volley-services.net",
                 port: 3000,
             })
         } catch (err) {
@@ -188,7 +188,7 @@ describe("runPrototypeCommand", () => {
         await runPrototypeCommand("my-game", {
             watch: false,
             delete: false,
-            registry: "registry.prototypes.svc.cluster.local:5000",
+            registry: "bifrost-registry.volley-services.net",
             port: 3000,
         })
 
@@ -207,7 +207,7 @@ describe("runPrototypeCommand", () => {
             runPrototypeCommand("my-game", {
                 watch: false,
                 delete: false,
-                registry: "registry.prototypes.svc.cluster.local:5000",
+                registry: "bifrost-registry.volley-services.net",
                 port: 3000,
             }),
         ).rejects.toThrow(/Cannot connect to Kubernetes cluster/)
@@ -221,7 +221,7 @@ describe("runPrototypeCommand", () => {
 
         // Verify registry default
         const registryOpt = cmd.options.find((o) => o.long === "--registry")
-        expect(registryOpt!.defaultValue).toBe("registry.prototypes.svc.cluster.local:5000")
+        expect(registryOpt!.defaultValue).toBe("bifrost-registry.volley-services.net")
 
         // Verify port default
         const portOpt = cmd.options.find((o) => o.long === "--port")
