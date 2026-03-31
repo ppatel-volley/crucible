@@ -115,6 +115,7 @@ export interface GitOperations {
     getHeadSha(path: string): Promise<string>
     isClean(path: string): Promise<boolean>
     hasRemote(path: string, name: string): Promise<boolean>
+    getRemoteUrl(path: string, name: string): Promise<string>
 }
 
 // === GitHub API ===

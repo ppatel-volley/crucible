@@ -1,7 +1,15 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
 import { Command } from "commander"
-import { registerPublishCommand, runPublishCommand, runPreFlightChecks, getPrototypeConfig } from "../../commands/publish.js"
-import type { CrucibleConfig, CruciblePaths, CrucibleJson } from "../../types.js"
+import {
+    registerPublishCommand,
+    runPublishCommand,
+    runPreFlightChecks,
+    getPrototypeConfig,
+    parseGitRemoteUrl,
+    findWorkflowRun,
+    pollWorkflowRun,
+} from "../../commands/publish.js"
+import type { CrucibleConfig, CruciblePaths, CrucibleJson, Logger } from "../../types.js"
 
 vi.mock("../../config/paths.js", () => ({
     resolvePaths: vi.fn(),
@@ -28,6 +36,11 @@ vi.mock("execa", () => ({
     execa: vi.fn(),
 }))
 
+vi.mock("../../api/github.js", () => ({
+    getGitHubToken: vi.fn(() => "fake-token"),
+    createGitHubClient: vi.fn(),
+}))
+
 vi.mock("../../util/logger.js", () => ({
     createLogger: vi.fn(() => ({
         spinner: vi.fn(() => ({
@@ -52,6 +65,7 @@ import { createGitOperations } from "../../git/operations.js"
 import { computeFileChecksum } from "../../git/validation.js"
 import { CrucibleError } from "../../util/errors.js"
 import { execa } from "execa"
+import { getGitHubToken, createGitHubClient } from "../../api/github.js"
 
 const mockPaths: CruciblePaths = {
     configDir: "/tmp/crucible-config",
@@ -113,9 +127,10 @@ function setupPreFlightMocks(overrides?: {
         commit: vi.fn(),
         push: vi.fn(),
         addRemote: vi.fn(),
-        getHeadSha: vi.fn(),
+        getHeadSha: vi.fn().mockResolvedValue("a1b2c3d"),
         isClean: vi.fn().mockResolvedValue(opts.isClean),
         hasRemote: vi.fn().mockResolvedValue(opts.hasRemote),
+        getRemoteUrl: vi.fn().mockResolvedValue("https://github.com/Volley-Inc/crucible-game-my-game.git"),
     })
 
     if (opts.crucibleJsonRaw === null) {
@@ -125,6 +140,55 @@ function setupPreFlightMocks(overrides?: {
     }
 
     vi.mocked(computeFileChecksum).mockResolvedValue(opts.dockerfileChecksum)
+}
+
+function createMockOctokit(overrides?: {
+    workflowRuns?: any[]
+    workflowRun?: any
+    jobs?: any[]
+}): any {
+    const runs = overrides?.workflowRuns ?? [
+        {
+            id: 42,
+            name: "crucible-deploy",
+            status: "completed",
+            conclusion: "success",
+            html_url: "https://github.com/Volley-Inc/crucible-game-my-game/actions/runs/42",
+        },
+    ]
+    const run = overrides?.workflowRun ?? runs[0]
+    const jobs = overrides?.jobs ?? [
+        {
+            name: "quality-gate",
+            status: "completed",
+            conclusion: "success",
+            started_at: "2026-01-01T00:00:00Z",
+            completed_at: "2026-01-01T00:00:18Z",
+            steps: [],
+        },
+        {
+            name: "build-and-deploy",
+            status: "completed",
+            conclusion: "success",
+            started_at: "2026-01-01T00:00:18Z",
+            completed_at: "2026-01-01T00:02:32Z",
+            steps: [],
+        },
+    ]
+
+    return {
+        actions: {
+            listWorkflowRunsForRepo: vi.fn().mockResolvedValue({ data: { workflow_runs: runs } }),
+            getWorkflowRun: vi.fn().mockResolvedValue({ data: run }),
+            listJobsForWorkflowRun: vi.fn().mockResolvedValue({ data: { jobs } }),
+        },
+    }
+}
+
+function setupFullPublishMocks(octokitOverrides?: Parameters<typeof createMockOctokit>[0]): void {
+    setupPreFlightMocks()
+    const mockOctokit = createMockOctokit(octokitOverrides)
+    vi.mocked(createGitHubClient).mockReturnValue(mockOctokit)
 }
 
 describe("registerPublishCommand", () => {
@@ -158,6 +222,7 @@ describe("registerPublishCommand", () => {
 describe("runPublishCommand", () => {
     beforeEach(() => {
         setupMocks()
+        vi.spyOn(console, "log").mockImplementation(() => {})
     })
 
     afterEach(() => {
@@ -186,9 +251,80 @@ describe("runPublishCommand", () => {
         }
     })
 
-    it("throws CRUCIBLE-501 not yet implemented for valid inputs", async () => {
+    it("pushes to GitHub and polls for workflow run on success", async () => {
+        vi.mocked(stat).mockResolvedValue({ isDirectory: () => true } as any)
+        setupFullPublishMocks()
+
+        await runPublishCommand("my-game", { timeout: 10, env: "dev" })
+
+        const gitOps = vi.mocked(createGitOperations).mock.results[0]!.value
+        expect(gitOps.push).toHaveBeenCalled()
+        expect(gitOps.getHeadSha).toHaveBeenCalled()
+    })
+
+    it("throws CRUCIBLE-205 when push fails", async () => {
         vi.mocked(stat).mockResolvedValue({ isDirectory: () => true } as any)
         setupPreFlightMocks()
+
+        // Override push to reject — createGitOperations returns the same object each time via mockReturnValue
+        const mockGitOps = vi.mocked(createGitOperations)()
+        mockGitOps.push = vi.fn().mockRejectedValue(new Error("push failed"))
+
+        try {
+            await runPublishCommand("my-game", { timeout: 10, env: "dev" })
+            expect.unreachable("Should have thrown")
+        } catch (err) {
+            expect(err).toBeInstanceOf(CrucibleError)
+            expect((err as CrucibleError).code).toBe("CRUCIBLE-205")
+            expect((err as CrucibleError).message).toContain("Failed to push to GitHub")
+        }
+    })
+
+    it("shows success message when workflow completes successfully", async () => {
+        vi.mocked(stat).mockResolvedValue({ isDirectory: () => true } as any)
+        setupFullPublishMocks()
+
+        await runPublishCommand("my-game", { timeout: 10, env: "dev" })
+
+        const consoleCalls = vi.mocked(console.log).mock.calls.map((c) => c[0]).join("\n")
+        expect(consoleCalls).toContain("quality-gate passed")
+        expect(consoleCalls).toContain("build-and-deploy passed")
+    })
+
+    it("throws CRUCIBLE-501 when workflow fails", async () => {
+        vi.mocked(stat).mockResolvedValue({ isDirectory: () => true } as any)
+
+        const failedRun = {
+            id: 42,
+            name: "crucible-deploy",
+            status: "completed",
+            conclusion: "failure",
+            html_url: "https://github.com/Volley-Inc/crucible-game-my-game/actions/runs/42",
+        }
+        const failedJobs = [
+            {
+                name: "quality-gate",
+                status: "completed",
+                conclusion: "success",
+                started_at: "2026-01-01T00:00:00Z",
+                completed_at: "2026-01-01T00:00:18Z",
+                steps: [],
+            },
+            {
+                name: "build-and-deploy",
+                status: "completed",
+                conclusion: "failure",
+                started_at: "2026-01-01T00:00:18Z",
+                completed_at: "2026-01-01T00:02:32Z",
+                steps: [],
+            },
+        ]
+
+        setupFullPublishMocks({
+            workflowRuns: [failedRun],
+            workflowRun: failedRun,
+            jobs: failedJobs,
+        })
 
         try {
             await runPublishCommand("my-game", { timeout: 10, env: "dev" })
@@ -196,7 +332,7 @@ describe("runPublishCommand", () => {
         } catch (err) {
             expect(err).toBeInstanceOf(CrucibleError)
             expect((err as CrucibleError).code).toBe("CRUCIBLE-501")
-            expect((err as CrucibleError).message).toContain("not yet implemented")
+            expect((err as CrucibleError).message).toContain("CI pipeline failed at build-and-deploy")
         }
     })
 })
@@ -264,6 +400,143 @@ describe("runPreFlightChecks", () => {
     })
 })
 
+describe("parseGitRemoteUrl", () => {
+    it("parses HTTPS URLs correctly", () => {
+        const result = parseGitRemoteUrl("https://github.com/Volley-Inc/crucible-game-trivia-royale.git")
+        expect(result).toEqual({ owner: "Volley-Inc", repo: "crucible-game-trivia-royale" })
+    })
+
+    it("parses HTTPS URLs without .git suffix", () => {
+        const result = parseGitRemoteUrl("https://github.com/Volley-Inc/crucible-game-trivia-royale")
+        expect(result).toEqual({ owner: "Volley-Inc", repo: "crucible-game-trivia-royale" })
+    })
+
+    it("parses SSH URLs correctly", () => {
+        const result = parseGitRemoteUrl("git@github.com:Volley-Inc/crucible-game-trivia-royale.git")
+        expect(result).toEqual({ owner: "Volley-Inc", repo: "crucible-game-trivia-royale" })
+    })
+
+    it("throws on invalid URLs", () => {
+        expect(() => parseGitRemoteUrl("not-a-url")).toThrow("Cannot parse GitHub remote URL")
+    })
+})
+
+describe("findWorkflowRun", () => {
+    it("finds a workflow run matching the commit SHA", async () => {
+        const octokit = createMockOctokit()
+        const run = await findWorkflowRun(octokit, "Volley-Inc", "crucible-game-foo", "abc1234", 60000)
+        expect(run.id).toBe(42)
+        expect(octokit.actions.listWorkflowRunsForRepo).toHaveBeenCalledWith({
+            owner: "Volley-Inc",
+            repo: "crucible-game-foo",
+            head_sha: "abc1234",
+            per_page: 10,
+        })
+    })
+
+    it("throws CRUCIBLE-501 when no run found within timeout", async () => {
+        const octokit = createMockOctokit({ workflowRuns: [] })
+
+        try {
+            await findWorkflowRun(octokit, "Volley-Inc", "crucible-game-foo", "abc1234", 100)
+            expect.unreachable("Should have thrown")
+        } catch (err) {
+            expect(err).toBeInstanceOf(CrucibleError)
+            expect((err as CrucibleError).code).toBe("CRUCIBLE-501")
+            expect((err as CrucibleError).message).toContain("No CI workflow run found")
+        }
+    })
+
+    it("prefers a run whose name contains 'crucible'", async () => {
+        const octokit = createMockOctokit({
+            workflowRuns: [
+                { id: 1, name: "lint", status: "completed", conclusion: "success", html_url: "http://example.com/1" },
+                { id: 2, name: "crucible-deploy", status: "completed", conclusion: "success", html_url: "http://example.com/2" },
+            ],
+        })
+
+        const run = await findWorkflowRun(octokit, "Volley-Inc", "crucible-game-foo", "abc1234", 60000)
+        expect(run.id).toBe(2)
+    })
+})
+
+describe("pollWorkflowRun", () => {
+    it("returns completed run with job details", async () => {
+        const octokit = createMockOctokit()
+        const mockLogger: Logger = {
+            spinner: vi.fn(() => ({
+                succeed: vi.fn(),
+                fail: vi.fn(),
+                update: vi.fn(),
+                stop: vi.fn(),
+            })),
+            info: vi.fn(),
+            error: vi.fn(),
+            debug: vi.fn(),
+            warn: vi.fn(),
+            success: vi.fn(),
+            fail: vi.fn(),
+        }
+
+        const result = await pollWorkflowRun(octokit, "Volley-Inc", "crucible-game-foo", 42, mockLogger, 60000)
+        expect(result.run.status).toBe("completed")
+        expect(result.run.conclusion).toBe("success")
+        expect(result.jobs).toHaveLength(2)
+        expect(result.jobs[0]!.name).toBe("quality-gate")
+        expect(result.jobs[1]!.name).toBe("build-and-deploy")
+    })
+
+    it("throws CRUCIBLE-505 on timeout", async () => {
+        const inProgressRun = {
+            id: 42,
+            name: "crucible-deploy",
+            status: "in_progress",
+            conclusion: null,
+            html_url: "https://github.com/Volley-Inc/crucible-game-foo/actions/runs/42",
+        }
+        const octokit = createMockOctokit({
+            workflowRun: inProgressRun,
+            jobs: [
+                {
+                    name: "quality-gate",
+                    status: "in_progress",
+                    conclusion: null,
+                    started_at: "2026-01-01T00:00:00Z",
+                    completed_at: null,
+                    steps: [
+                        { name: "Checkout", status: "completed" },
+                        { name: "Lint", status: "in_progress" },
+                    ],
+                },
+            ],
+        })
+
+        const mockLogger: Logger = {
+            spinner: vi.fn(() => ({
+                succeed: vi.fn(),
+                fail: vi.fn(),
+                update: vi.fn(),
+                stop: vi.fn(),
+            })),
+            info: vi.fn(),
+            error: vi.fn(),
+            debug: vi.fn(),
+            warn: vi.fn(),
+            success: vi.fn(),
+            fail: vi.fn(),
+        }
+
+        try {
+            await pollWorkflowRun(octokit, "Volley-Inc", "crucible-game-foo", 42, mockLogger, 100)
+            expect.unreachable("Should have thrown")
+        } catch (err) {
+            expect(err).toBeInstanceOf(CrucibleError)
+            expect((err as CrucibleError).code).toBe("CRUCIBLE-505")
+            expect((err as CrucibleError).message).toContain("CI pipeline timed out")
+        }
+    })
+})
+
 describe("getPrototypeConfig", () => {
     afterEach(() => {
         vi.restoreAllMocks()
@@ -301,6 +574,7 @@ describe("getPrototypeConfig", () => {
 describe("runPublishCommand --from-prototype", () => {
     beforeEach(() => {
         setupMocks()
+        vi.spyOn(console, "log").mockImplementation(() => {})
     })
 
     afterEach(() => {
@@ -342,9 +616,9 @@ describe("runPublishCommand --from-prototype", () => {
         }
     })
 
-    it("shows graduation summary for a healthy prototype", async () => {
+    it("shows graduation summary and completes for a healthy prototype", async () => {
         vi.mocked(stat).mockResolvedValue({ isDirectory: () => true } as any)
-        setupPreFlightMocks()
+        setupFullPublishMocks()
 
         const kubectlResponse = {
             status: { phase: "Running", hostname: "my-game.bifrost.dev" },
@@ -356,24 +630,13 @@ describe("runPublishCommand --from-prototype", () => {
         }
         vi.mocked(execa).mockResolvedValue({ stdout: JSON.stringify(kubectlResponse) } as any)
 
-        const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {})
+        await runPublishCommand("my-game", { timeout: 10, env: "dev", fromPrototype: true })
 
-        try {
-            await runPublishCommand("my-game", { timeout: 10, env: "dev", fromPrototype: true })
-            expect.unreachable("Should have thrown")
-        } catch (err) {
-            // Should eventually throw CRUCIBLE-501 (not yet implemented) after showing summary
-            expect(err).toBeInstanceOf(CrucibleError)
-            expect((err as CrucibleError).code).toBe("CRUCIBLE-501")
-        }
-
-        const output = consoleSpy.mock.calls.map((c) => c[0]).join("\n")
+        const output = vi.mocked(console.log).mock.calls.map((c) => c[0]).join("\n")
         expect(output).toContain("Graduating prototype to production:")
         expect(output).toContain("Port: 3000")
         expect(output).toContain("scores (postgres)")
         expect(output).toContain("cache (redis)")
         expect(output).toContain("Env vars: 3")
-
-        consoleSpy.mockRestore()
     })
 })
