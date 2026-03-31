@@ -7,7 +7,9 @@ import { gracefulKill } from "../util/process.js"
 import { networkError } from "../util/errors.js"
 
 const READY_SIGNALS: Record<DevProcessName, RegExp> = {
-    server: /started on|listening on|ready/i,
+    // Matches both plain text ("WGFServer started on :8090") and
+    // JSON logs ({"msg":"...server started"}) from VGF/pino
+    server: /started on|listening on|server started|"msg".*started|ready/i,
     display: /ready in|Local:|VITE/i,
     controller: /ready in|Local:|VITE/i,
 }
@@ -84,6 +86,8 @@ export async function startDevSession(options: OrchestratorOptions): Promise<Dev
         },
     ]
 
+    const readyPromises: Promise<void>[] = []
+
     for (const config of processConfigs) {
         const writer = createProcessWriter(config.name)
         const proc = execa("pnpm", config.args, {
@@ -93,6 +97,10 @@ export async function startDevSession(options: OrchestratorOptions): Promise<Dev
         })
 
         pids[config.name] = proc.pid ?? null
+
+        // Attach readiness listener BEFORE piping output (avoids race condition
+        // where ready signal fires before waitForReady attaches its listener)
+        readyPromises.push(waitForReady(proc, config.name, startupTimeout))
 
         // Pipe output through the multiplexer
         proc.stdout?.on("data", (data: Buffer) => {
@@ -119,11 +127,7 @@ export async function startDevSession(options: OrchestratorOptions): Promise<Dev
 
     // 3. Wait for all processes to be ready (with timeout)
     try {
-        await Promise.all(
-            [...processes.entries()].map(([name, proc]) =>
-                waitForReady(proc, name, startupTimeout),
-            ),
-        )
+        await Promise.all(readyPromises)
     } catch (err) {
         // Startup failed — kill everything
         await stopAllProcesses(processes, gracePeriod)
