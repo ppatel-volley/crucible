@@ -67,21 +67,36 @@ export async function findWorkflowRun(
     const findDeadline = Date.now() + maxFindTimeout
 
     while (Date.now() < findDeadline) {
-        const { data } = await octokit.actions.listWorkflowRunsForRepo({
-            owner,
-            repo,
-            head_sha: headSha,
-            per_page: 10,
-        })
+        let runs: Array<{ id: number; name?: string | null; status: string | null; conclusion: string | null; html_url: string; created_at?: string }>
+        try {
+            const { data } = await octokit.actions.listWorkflowRunsForRepo({
+                owner,
+                repo,
+                head_sha: headSha,
+                per_page: 10,
+            })
+            runs = data.workflow_runs
+        } catch (err) {
+            throw networkError(
+                "CRUCIBLE-501",
+                "Failed to query GitHub Actions API",
+                "Check your GitHub token permissions and network connection.",
+                { cause: err instanceof Error ? err : new Error(String(err)), retryable: true },
+            )
+        }
 
-        if (data.workflow_runs.length > 0) {
-            // Prefer a run whose workflow name contains "crucible" or "deploy"
-            const preferred = data.workflow_runs.find(
+        if (runs.length > 0) {
+            // Prefer a run whose workflow name contains "crucible" or "deploy",
+            // sorted by most recently created to avoid picking stale re-runs
+            const sorted = [...runs].sort(
+                (a, b) => new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime(),
+            )
+            const preferred = sorted.find(
                 (r) =>
                     r.name?.toLowerCase().includes("crucible") ||
                     r.name?.toLowerCase().includes("deploy"),
             )
-            const run = preferred ?? data.workflow_runs[0]!
+            const run = preferred ?? sorted[0]!
             return {
                 id: run.id,
                 status: run.status as WorkflowRunStatus["status"],
@@ -90,8 +105,9 @@ export async function findWorkflowRun(
             }
         }
 
-        if (Date.now() + pollInterval >= findDeadline) break
-        await sleep(pollInterval)
+        const remaining = findDeadline - Date.now()
+        if (remaining <= 0) break
+        await sleep(Math.min(pollInterval, remaining))
     }
 
     throw networkError(
@@ -160,12 +176,22 @@ export async function pollWorkflowRun(
                 }
             }
 
-            if (Date.now() + pollInterval >= deadline) break
-            await sleep(pollInterval)
+            const remaining = deadline - Date.now()
+            if (remaining <= 0) break
+            await sleep(Math.min(pollInterval, remaining))
         }
     } catch (err) {
         spinner.stop()
-        throw err
+        // Wrap raw API errors with a proper CRUCIBLE code
+        if (err instanceof Error && "code" in err && (err as { code: string }).code?.startsWith("CRUCIBLE")) {
+            throw err
+        }
+        throw networkError(
+            "CRUCIBLE-505",
+            "CI polling failed — GitHub API error",
+            "Check your GitHub token permissions and network connection.",
+            { cause: err instanceof Error ? err : new Error(String(err)), retryable: true },
+        )
     }
 
     spinner.stop()
