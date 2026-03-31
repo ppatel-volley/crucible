@@ -38,7 +38,7 @@ That's it. Three commands from idea to playable game.
 
 ### Prerequisites
 
-- **Node.js** 20 or later
+- **Node.js** 22 or later
 - **pnpm** 9 or later
 - **Git**
 - A **GitHub token** with repo access (`GITHUB_TOKEN` environment variable)
