@@ -116,6 +116,8 @@ export function serializeGamePrototypeCRD(crd: GamePrototypeCRD): string {
         yaml += `    url: ${crd.spec.source.url}\n`
         if (crd.spec.source.revision) yaml += `    revision: ${crd.spec.source.revision}\n`
         if (crd.spec.source.subPath) yaml += `    subPath: ${crd.spec.source.subPath}\n`
+        if (crd.spec.source.secretRef) yaml += `    secretRef:\n      name: ${crd.spec.source.secretRef.name}\n`
+        if (crd.spec.source.builderImage) yaml += `    builderImage: ${crd.spec.source.builderImage}\n`
     }
     if (crd.spec.port) yaml += `  port: ${crd.spec.port}\n`
     if (crd.spec.websocketPort) yaml += `  websocketPort: ${crd.spec.websocketPort}\n`
