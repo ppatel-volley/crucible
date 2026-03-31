@@ -25,7 +25,7 @@ describe("registry", () => {
     describe("buildImageRef", () => {
         it("uses default registry when not specified", () => {
             const ref = buildImageRef("my-game", "abc1234")
-            expect(ref).toBe("registry.prototypes.svc.cluster.local:5000/my-game:abc1234")
+            expect(ref).toBe("bifrost-registry.volley-services.net/my-game:abc1234")
         })
 
         it("uses custom registry when provided", () => {
@@ -36,23 +36,23 @@ describe("registry", () => {
 
     describe("tagImage", () => {
         it("calls docker tag with correct args", async () => {
-            await tagImage("local-image:dev", "registry.prototypes.svc.cluster.local:5000/my-game:v1")
+            await tagImage("local-image:dev", "bifrost-registry.volley-services.net/my-game:v1")
 
             expect(mockExeca).toHaveBeenCalledWith("docker", [
                 "tag",
                 "local-image:dev",
-                "registry.prototypes.svc.cluster.local:5000/my-game:v1",
+                "bifrost-registry.volley-services.net/my-game:v1",
             ])
         })
     })
 
     describe("pushImage", () => {
         it("calls docker push with correct args", async () => {
-            await pushImage("registry.prototypes.svc.cluster.local:5000/my-game:v1")
+            await pushImage("bifrost-registry.volley-services.net/my-game:v1")
 
             expect(mockExeca).toHaveBeenCalledWith("docker", [
                 "push",
-                "registry.prototypes.svc.cluster.local:5000/my-game:v1",
+                "bifrost-registry.volley-services.net/my-game:v1",
             ])
         })
 
@@ -60,7 +60,7 @@ describe("registry", () => {
             mockExeca.mockRejectedValueOnce(new Error("connection refused"))
 
             await expect(
-                pushImage("registry.prototypes.svc.cluster.local:5000/my-game:v1"),
+                pushImage("bifrost-registry.volley-services.net/my-game:v1"),
             ).rejects.toThrow(CrucibleError)
         })
     })
@@ -73,16 +73,16 @@ describe("registry", () => {
                 tag: "abc1234",
             })
 
-            expect(ref).toBe("registry.prototypes.svc.cluster.local:5000/my-game:abc1234")
+            expect(ref).toBe("bifrost-registry.volley-services.net/my-game:abc1234")
             expect(mockExeca).toHaveBeenCalledTimes(2)
             expect(mockExeca).toHaveBeenNthCalledWith(1, "docker", [
                 "tag",
                 "local-image:dev",
-                "registry.prototypes.svc.cluster.local:5000/my-game:abc1234",
+                "bifrost-registry.volley-services.net/my-game:abc1234",
             ])
             expect(mockExeca).toHaveBeenNthCalledWith(2, "docker", [
                 "push",
-                "registry.prototypes.svc.cluster.local:5000/my-game:abc1234",
+                "bifrost-registry.volley-services.net/my-game:abc1234",
             ])
         })
 
@@ -92,7 +92,7 @@ describe("registry", () => {
                 localImage: "local-image:dev",
             })
 
-            expect(ref).toBe("registry.prototypes.svc.cluster.local:5000/my-game:latest")
+            expect(ref).toBe("bifrost-registry.volley-services.net/my-game:latest")
         })
     })
 

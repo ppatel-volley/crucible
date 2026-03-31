@@ -1,7 +1,7 @@
 import { execa } from "execa"
 import { networkError, usageError } from "../util/errors.js"
 
-const DEFAULT_REGISTRY = "registry.prototypes.svc.cluster.local:5000"
+const DEFAULT_REGISTRY = "bifrost-registry.volley-services.net"
 
 /**
  * Build the full image reference for the in-cluster registry.

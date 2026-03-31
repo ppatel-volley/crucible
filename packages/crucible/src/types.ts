@@ -288,7 +288,7 @@ export interface GlobalOptions {
 }
 
 // === Prototype / Bifrost ===
-export type BifrostDependencyType = "postgres" | "redis" | "s3"
+export type BifrostDependencyType = "postgres" | "redis" | "s3" | "dynamodb"
 
 export interface BifrostDependency {
     type: BifrostDependencyType
@@ -298,19 +298,27 @@ export interface BifrostSourceSpec {
     url: string
     revision?: string
     subPath?: string
+    secretRef?: { name: string }
+    builderImage?: string
+}
+
+export interface BifrostIngressSpec {
+    hostname: string
+    visibility?: "public" | "private"
 }
 
 export interface GamePrototypeSpec {
     image?: string
     source?: BifrostSourceSpec
     port?: number
-    websocket?: boolean
+    websocketPort?: number
     env?: Record<string, string>
     dependencies?: Record<string, BifrostDependency>
+    ingress?: BifrostIngressSpec
 }
 
 export interface GamePrototypeCRD {
-    apiVersion: "volley.weekend.com/v1alpha1"
+    apiVersion: "weekend.com/v1alpha1"
     kind: "GamePrototype"
     metadata: { name: string }
     spec: GamePrototypeSpec
@@ -319,11 +327,12 @@ export interface GamePrototypeCRD {
 export interface PrototypeOptions {
     gameId: string
     imageTag?: string
-    sourceUrl?: string       // Git repo URL for source-based builds
-    sourceRevision?: string  // default: "main"
-    registryHost?: string    // default: "registry.prototypes.svc.cluster.local:5000"
-    port?: number            // default: 3000
-    websocket?: boolean      // default: true (VGF games use WebSocket)
+    sourceUrl?: string        // Git repo URL for source-based builds
+    sourceRevision?: string   // default: "main"
+    registryHost?: string     // default: "bifrost-registry.volley-services.net"
+    port?: number             // default: 3000
+    websocketPort?: number    // dedicated WebSocket port (optional)
+    ingressHostname?: string  // external hostname for prototype
     env?: Record<string, string>
-    dependencies?: string // format: "name:type,name:type"
+    dependencies?: string     // format: "name:type,name:type"
 }

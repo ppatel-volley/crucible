@@ -16,8 +16,10 @@ export function registerPrototypeCommand(program: Command): void {
         .option("--dependencies <deps>", "Infrastructure dependencies (name:type,name:type)")
         .option("--delete", "Remove the prototype and clean up resources", false)
         .option("--source <repo>", "Git repo URL for source-based build (Bifrost Buildpacks)")
-        .option("--registry <host>", "In-cluster registry host", "registry.prototypes.svc.cluster.local:5000")
+        .option("--registry <host>", "Bifrost registry host", "bifrost-registry.volley-services.net")
         .option("--port <port>", "Container port", parseInt, 3000)
+        .option("--ws-port <port>", "WebSocket port (for VGF games)", parseInt)
+        .option("--ingress <hostname>", "External hostname for the prototype")
         .action(async (gameId: string, options) => {
             await runPrototypeCommand(gameId, options)
         })
@@ -32,6 +34,8 @@ export async function runPrototypeCommand(
         source?: string
         registry: string
         port: number
+        wsPort?: number
+        ingress?: string
     },
 ): Promise<void> {
     const paths = resolvePaths()
@@ -85,7 +89,8 @@ export async function runPrototypeCommand(
             : { imageTag: "latest" }),
         registryHost: options.registry,
         port: options.port,
-        websocket: true,
+        websocketPort: options.wsPort,
+        ingressHostname: options.ingress,
         dependencies: options.dependencies,
     })
 
