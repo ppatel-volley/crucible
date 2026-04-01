@@ -185,18 +185,60 @@ Lambda handlers implemented in `packages/crucible-registry/` (17 tests). Not yet
 
 ---
 
-## Phase 3–6: Not Started
+## Phase 3: Publish Pipeline — IN PROGRESS
 
-Depends on Phases 1 and 2. See `docs/development-plan.md`.
+### Milestone 3A: CI Pipeline + Deploy Tool — COMPLETE
+
+| Module | Status | Tests | Notes |
+|--------|--------|-------|-------|
+| `@volley/crucible-deploy` scaffold | Done | — | CLI with 4 subcommands via Commander |
+| `apply` command | Done | 37 | K8s manifests (6 types), IRSA CloudFormation, kubectl apply |
+| `verify` command | Done | 6 | Health endpoint polling with timeout |
+| `register` command | Done | 7 | Registry API PUT with optimistic concurrency + 409 retry |
+| `rollback` command | Done | — | kubectl rollout undo + best-effort registry update |
+| K8s manifest templates | Done | (in apply) | Deployment, Service, Ingress, ServiceAccount, ScaledObject, NetworkPolicy |
+| IRSA CloudFormation template | Done | (in apply) | Per-game IAM role with scoped S3/ECR |
+| CI workflow template update | Done | — | EKS_OIDC_PROVIDER wired, env expressions fixed |
+
+**Review:** Internal review + Cursor reviewer. All findings addressed (CloudFormation waiter, OIDC param, NetworkPolicy scoping, ECR permissions, gameId validation).
+
+### Milestone 3B: CLI Publish + Ops Commands — PARTIAL
+
+`crucible publish` has pre-flights + CI polling. Other ops commands scaffolded only.
+
+### Milestone 3C: Safety + Resilience — NOT STARTED
+
+---
+
+## Phase 4: Proto-Hub (Foundry) — FORK COMPLETE
+
+Proto-Hub forked from Hub, stripped, and running locally with AI-generated placeholder games.
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Fork + strip paywall/billing/experiments/mobile | Done | 346 files removed |
+| PlatformProvider working locally | Done | ensureLocalHubSessionId pattern |
+| Placeholder games rendering | Done | 5 Foundry-branded games with Fal.ai artwork |
+| Default prototype tile asset | Done | Wireframe cube for Bifrost prototypes |
+| Registry API integration (4.2) | Not started | Blocked on Registry API deployment |
+| Bifrost prototype integration (4.3) | Not started | |
+| Direct URL launch for prototypes (4.4) | Not started | |
+| QR code pairing (4.5) | Not started | |
+
+---
+
+## Phases 5–6: Not Started
+
+Depends on Phase 3. See `docs/development-plan.md`.
 
 ---
 
 ## Overall Stats
 
-- **Total tests:** 374 (357 crucible + 17 registry, across 43 test files)
-- **Typecheck:** Clean (both packages)
+- **Total tests:** 424 (357 crucible + 17 registry + 50 deploy, across 46 test files)
+- **Typecheck:** Clean (all 3 packages)
 - **All commands registered:** No stubs remaining in index.ts
-- **Packages:** `@volley/crucible` (CLI) + `@volley/crucible-registry` (Lambda API)
+- **Packages:** `@volley/crucible` (CLI) + `@volley/crucible-registry` (Lambda API) + `@volley/crucible-deploy` (CI deploy tool)
 
 ## Documentation
 
@@ -209,6 +251,9 @@ Depends on Phases 1 and 2. See `docs/development-plan.md`.
 | `docs/tdd-cli.md` | CLI Technical Design Document |
 | `docs/tdd-infrastructure.md` | Infrastructure Technical Design Document |
 | `docs/architecture.md` | Full architecture plan |
+| `docs/protohub-for-bifrost.md` | Proto-Hub integration briefing for Bifrost team |
+| `docs/protohub-assessment.md` | Hub codebase assessment for Crucible integration |
+| `docs/observability-plan.md` | Datadog observability plan for all Crucible surfaces |
 
 ## Open PRs (Cross-Repo)
 
@@ -219,3 +264,6 @@ Depends on Phases 1 and 2. See `docs/development-plan.md`.
 | ~~#866~~ | kubernetes | crucible-dev namespace + Flux sync | **Merged** |
 | ~~#4273~~ | volley-infra-tenants | crucible dev HelmRelease config | **Merged** |
 | ~~#3~~ | crucible | Prototype command + Registry API | **Merged** |
+| ~~#12~~ | crucible | crucible-deploy CI tool (Phase 3A) | **Merged** |
+| #12 | bifrost | Proto-Hub briefing for Bifrost agent | Open (awaiting Bifrost team) |
+| #2112 | volley-infra | Registry API Terraform (Lambda + API Gateway) | Awaiting `atlantis apply` |
