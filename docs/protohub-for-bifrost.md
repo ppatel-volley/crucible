@@ -204,7 +204,7 @@ window.parent.postMessage({ type: "close" }, "*")
 
 Proto-Hub currently has 5 AI-generated placeholder games (Brain Blast, Cosmic Clash, Word Forge, Rhythm Rush, Draw Duel) using Fal.ai-generated artwork. When Bifrost prototypes are integrated:
 
-- Prototypes without custom artwork will get a **default prototype tile** (to be generated)
+- Prototypes without custom artwork will get a **default prototype tile** (`default-prototype.webp`)
 - The game's `displayName` from the CRD will be overlaid on the tile
 - A "PROTOTYPE" badge will be shown (using `GameStatus.Beta`)
 
