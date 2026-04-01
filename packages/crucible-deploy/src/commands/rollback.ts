@@ -4,7 +4,7 @@ import { execFile } from "node:child_process"
 import { promisify } from "node:util"
 import { kubectlRolloutWait } from "../lib/kubectl.js"
 import { registerGame } from "../lib/registry-client.js"
-import { REGISTRY_URLS } from "../lib/constants.js"
+import { REGISTRY_URLS, validateGameId } from "../lib/constants.js"
 
 const execFileAsync = promisify(execFile)
 
@@ -20,6 +20,7 @@ export const rollbackCommand = new Command("rollback")
     .option("--rollout-timeout <seconds>", "Rollout wait timeout", "120")
     .action(async (opts) => {
         const gameId: string = opts.game
+        validateGameId(gameId)
         const env: string = opts.env
         const namespace = opts.namespace ?? `crucible-${env}`
         const registryUrl: string =

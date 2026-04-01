@@ -1,6 +1,7 @@
 import { Command } from "commander"
 import chalk from "chalk"
 import { pollHealth } from "../lib/health-check.js"
+import { validateGameId } from "../lib/constants.js"
 
 export const verifyCommand = new Command("verify")
     .description("Verify a deployed game is healthy")
@@ -13,6 +14,7 @@ export const verifyCommand = new Command("verify")
     )
     .action(async (opts) => {
         const gameId: string = opts.game
+        validateGameId(gameId)
         const env: string = opts.env
         const timeout = parseInt(opts.timeout, 10) * 1000
         const host = `crucible-games-${env}.volley-services.net`

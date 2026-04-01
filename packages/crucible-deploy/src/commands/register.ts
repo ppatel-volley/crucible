@@ -1,7 +1,7 @@
 import { Command } from "commander"
 import chalk from "chalk"
 import { registerGame } from "../lib/registry-client.js"
-import { REGISTRY_URLS } from "../lib/constants.js"
+import { REGISTRY_URLS, validateGameId } from "../lib/constants.js"
 
 export const registerCommand = new Command("register")
     .description("Register a deployed game in the Crucible Registry")
@@ -15,6 +15,7 @@ export const registerCommand = new Command("register")
     .option("--registry-url <url>", "Override Registry API base URL")
     .action(async (opts) => {
         const gameId: string = opts.game
+        validateGameId(gameId)
         const env: string = opts.env
         const registryUrl: string =
             opts.registryUrl ?? REGISTRY_URLS[env]

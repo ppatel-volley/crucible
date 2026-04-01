@@ -31,10 +31,12 @@ const BASE_DELAY_MS = 500
  * Uses optimistic concurrency: fetches current state first, then PUTs
  * with expectedUpdatedAt. Retries on 409 conflict.
  *
- * Auth is via IAM SigV4 — the CI runner's AWS credentials are used
- * automatically by the fetch calls (via AWS_ACCESS_KEY_ID etc).
- * In CI, we rely on the pre-signed IAM headers being injected
- * or pass Authorization headers explicitly.
+ * Auth: In CI, the Registry API Gateway uses AWS_IAM authorization.
+ * The crucible-ci role's credentials (set by configure-aws-credentials)
+ * are available in the environment. API Gateway validates the caller's
+ * IAM identity via the request context — no explicit SigV4 signing is
+ * needed when using API Gateway's built-in IAM auth with Lambda proxy.
+ * For direct Lambda invocation, SigV4 would be required.
  */
 export async function registerGame(
     registryUrl: string,
