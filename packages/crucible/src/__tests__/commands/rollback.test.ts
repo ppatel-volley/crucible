@@ -15,6 +15,10 @@ vi.mock("node:fs/promises", () => ({
     stat: vi.fn(),
 }))
 
+vi.mock("execa", () => ({
+    execa: vi.fn(),
+}))
+
 import { resolvePaths } from "../../config/paths.js"
 import { loadConfig } from "../../config/config.js"
 import { stat } from "node:fs/promises"
@@ -87,12 +91,27 @@ describe("runRollbackCommand", () => {
         )
     })
 
-    it("throws CRUCIBLE-701 not yet implemented for valid inputs", async () => {
+    it("throws CRUCIBLE-701 when kubectl rollout undo fails", async () => {
         vi.mocked(stat).mockResolvedValue({ isDirectory: () => true } as any)
 
+        const { execa } = await import("execa")
+        vi.mocked(execa).mockRejectedValue(new Error("kubectl: deployment not found"))
+
         await expect(runRollbackCommand("my-game", { env: "dev" })).rejects.toThrow(CrucibleError)
-        await expect(runRollbackCommand("my-game", { env: "dev" })).rejects.toThrow(
-            /CRUCIBLE-701|not yet implemented/,
-        )
+        try {
+            await runRollbackCommand("my-game", { env: "dev" })
+        } catch (err) {
+            expect((err as CrucibleError).code).toBe("CRUCIBLE-701")
+        }
+    })
+
+    it("succeeds when kubectl rollout undo and status both succeed", async () => {
+        vi.mocked(stat).mockResolvedValue({ isDirectory: () => true } as any)
+
+        const { execa } = await import("execa")
+        vi.mocked(execa).mockResolvedValue({ stdout: "deployment rolled back", stderr: "" } as any)
+
+        // Should not throw
+        await runRollbackCommand("my-game", { env: "dev" })
     })
 })

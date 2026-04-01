@@ -112,7 +112,9 @@ jobs:
 
       - name: Deploy
         id: deploy
-        run: npx crucible-deploy apply --game "$GAME_ID" --image "\${{ECR_REGISTRY}}/\${{ECR_REPO}}:\${{IMAGE_TAG}}" --env "$ENV"
+        run: npx crucible-deploy apply --game "$GAME_ID" --image "\${{ env.ECR_REGISTRY }}/\${{ env.ECR_REPO }}:\${{ env.IMAGE_TAG }}" --env "$ENV"
+        env:
+          EKS_OIDC_PROVIDER: \${{ vars.EKS_OIDC_PROVIDER }}
 
       - name: Verify
         id: verify
