@@ -427,4 +427,4 @@ Every original learning mapped to its amalgamated file:
 |---|---------|
 | [050](./050-create-dev-out-of-box-issues.md) | 8 issues found in first real create→dev flow: nested node_modules filter, Windows paths, shared package build, tsconfig skipLibCheck, JSON log readiness, personal GitHub accounts, ruleset perms, NPM_TOKEN warning |
 | [051](./051-tsconfig-skip-lib-check.md) | Template tsconfig.base.json needs `skipLibCheck: true` — without it, shared package build fails on vite/vitest .d.ts type errors |
-| [054](./054-prototype-deploy-pitfalls.md) | 7 issues deploying a VGF game to Bifrost: npm secrets, ARM→AMD64, scoped build, pnpm v10 --legacy, missing index.ts, ESM extensionless imports, composite tsconfig |
+| [054](./054-prototype-deploy-pitfalls.md) | 11 issues deploying a VGF game to Bifrost: npm secrets, ARM→AMD64, parseInt radix bug, display not served, session mismatch, ESM imports, and more |
