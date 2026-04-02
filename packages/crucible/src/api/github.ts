@@ -48,22 +48,14 @@ export async function createGameRepo(octokit: Octokit, options: CreateRepoOption
 
     const exists = await repoExists(octokit, options.org, repoName)
     if (exists) {
-        // Repo already exists — reuse it (e.g. from a previous failed create attempt)
-        const { data } = await octokit.repos.get({ owner: options.org, repo: repoName })
-
-        // Try to apply rulesets (best-effort — may fail without admin perms)
-        await applyProtectionRulesets(octokit, options.org, repoName).catch(() => {})
-
-        return {
-            cloneUrl: data.clone_url,
-            htmlUrl: data.html_url,
-            fullName: data.full_name,
-        }
+        throw gitError(
+            "CRUCIBLE-201",
+            `Repository already exists: ${options.org}/${repoName}`,
+            "Choose a different game name, or delete the existing repository before retrying.",
+        )
     }
 
     try {
-        let data: { clone_url: string; html_url: string; full_name: string }
-
         try {
             const orgResult = await octokit.repos.createInOrg({
                 org: options.org,
@@ -72,33 +64,27 @@ export async function createGameRepo(octokit: Octokit, options: CreateRepoOption
                 private: true,
                 auto_init: false,
             })
-            data = orgResult.data
+            await applyProtectionRulesets(octokit, options.org, repoName)
+
+            return {
+                cloneUrl: orgResult.data.clone_url,
+                htmlUrl: orgResult.data.html_url,
+                fullName: orgResult.data.full_name,
+            }
         } catch (orgErr: unknown) {
-            // If org doesn't exist (personal account), create under authenticated user
-            const is404 =
+            if (
                 orgErr instanceof Error &&
                 "status" in orgErr &&
                 (orgErr as { status: number }).status === 404
-            if (!is404) {
-                throw orgErr
+            ) {
+                throw gitError(
+                    "CRUCIBLE-206",
+                    `GitHub organization not found: ${options.org}`,
+                    "Set a valid GitHub organization in config.githubOrg and retry.",
+                    { cause: orgErr },
+                )
             }
-
-            const userResult = await octokit.repos.createForAuthenticatedUser({
-                name: repoName,
-                description: `${options.displayName} — a Crucible TV game`,
-                private: true,
-                auto_init: false,
-            })
-            data = userResult.data
-        }
-
-        // Try to apply rulesets (best-effort — may fail without admin perms)
-        await applyProtectionRulesets(octokit, options.org, repoName).catch(() => {})
-
-        return {
-            cloneUrl: data.clone_url,
-            htmlUrl: data.html_url,
-            fullName: data.full_name,
+            throw orgErr
         }
     } catch (err: unknown) {
         if (err instanceof CrucibleError) {

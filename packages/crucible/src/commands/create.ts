@@ -71,6 +71,7 @@ export async function executeCreate(
     logger: Logger,
 ): Promise<CreateResult> {
     const completedSteps: StepName[] = []
+    let githubTokenForRollback: string | undefined
     const tokenMap = buildTokenMap(options.displayName)
     const kebab = tokenMap.gameNameKebab.to
 
@@ -221,6 +222,7 @@ export async function executeCreate(
             const ghSpinner = logger.spinner("Creating GitHub repository...")
             try {
                 const token = getGitHubToken()
+                githubTokenForRollback = token
                 const octokit = createGitHubClient(token)
                 const repoResult = await createGameRepo(octokit, {
                     org: config.githubOrg,
@@ -279,12 +281,19 @@ export async function executeCreate(
         }
     } catch (err) {
         // Rollback on failure
-        await rollback(completedSteps, gamePath, logger, config, kebab)
+        await rollback(completedSteps, gamePath, logger, config, kebab, githubTokenForRollback)
         throw err
     }
 }
 
-async function rollback(completedSteps: StepName[], gamePath: string, logger: Logger, config?: CrucibleConfig, gameId?: string): Promise<void> {
+async function rollback(
+    completedSteps: StepName[],
+    gamePath: string,
+    logger: Logger,
+    config?: CrucibleConfig,
+    gameId?: string,
+    githubToken?: string,
+): Promise<void> {
     const reversed = [...completedSteps].reverse()
 
     for (const step of reversed) {
@@ -292,9 +301,8 @@ async function rollback(completedSteps: StepName[], gamePath: string, logger: Lo
             case "github-repo":
                 // Best-effort delete of the GitHub repo
                 try {
-                    const token = process.env.GITHUB_TOKEN
-                    if (token && config && gameId) {
-                        const octokit = createGitHubClient(token)
+                    if (githubToken && config && gameId) {
+                        const octokit = createGitHubClient(githubToken)
                         const repoName = `crucible-game-${gameId}`
                         await deleteGameRepo(octokit, config.githubOrg, repoName)
                         logger.warn(`Rolled back: deleted GitHub repo ${config.githubOrg}/${repoName}`)
