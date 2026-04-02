@@ -162,92 +162,32 @@ describe("createGameRepo", () => {
         )
     })
 
-    it("falls back to createForAuthenticatedUser when org returns 404", async () => {
+    it("throws CRUCIBLE-206 when org does not exist", async () => {
         const octokit = createMockOctokit()
         // repoExists returns false (404)
         vi.mocked(octokit.repos.get).mockRejectedValue(
             Object.assign(new Error("Not Found"), { status: 404 }),
         )
-        // createInOrg fails with 404 (personal account, not an org)
+        // createInOrg fails with 404 (org not found)
         vi.mocked(octokit.repos.createInOrg).mockRejectedValue(
             Object.assign(new Error("Not Found"), { status: 404 }),
         )
-        // createForAuthenticatedUser succeeds
-        const mockOctokit = octokit as unknown as {
-            repos: {
-                createForAuthenticatedUser: ReturnType<typeof vi.fn>
-            }
+        try {
+            await createGameRepo(octokit, {
+                org: "ppatel",
+                gameId: "test",
+                displayName: "Test Game",
+                githubToken: "ghp_test",
+            })
+            expect.fail("Should have thrown")
+        } catch (err) {
+            expect(err).toBeInstanceOf(CrucibleError)
+            expect((err as CrucibleError).code).toBe("CRUCIBLE-206")
+            expect(vi.mocked(octokit.repos.createInOrg)).toHaveBeenCalled()
         }
-        mockOctokit.repos.createForAuthenticatedUser.mockResolvedValue({
-            data: {
-                clone_url: "https://github.com/ppatel/crucible-game-test.git",
-                html_url: "https://github.com/ppatel/crucible-game-test",
-                full_name: "ppatel/crucible-game-test",
-            },
-        } as never)
-        vi.mocked(octokit.request).mockResolvedValue({ data: {} } as never)
-
-        const result = await createGameRepo(octokit, {
-            org: "ppatel",
-            gameId: "test",
-            displayName: "Test Game",
-            githubToken: "ghp_test",
-        })
-
-        expect(result.cloneUrl).toBe("https://github.com/ppatel/crucible-game-test.git")
-        expect(result.htmlUrl).toBe("https://github.com/ppatel/crucible-game-test")
-        expect(result.fullName).toBe("ppatel/crucible-game-test")
-        expect(vi.mocked(octokit.repos.createInOrg)).toHaveBeenCalled()
-        expect(mockOctokit.repos.createForAuthenticatedUser).toHaveBeenCalledWith(
-            expect.objectContaining({
-                name: "crucible-game-test",
-                private: true,
-                auto_init: false,
-            }),
-        )
     })
 
-    it("fallback to createForAuthenticatedUser still applies rulesets", async () => {
-        const octokit = createMockOctokit()
-        vi.mocked(octokit.repos.get).mockRejectedValue(
-            Object.assign(new Error("Not Found"), { status: 404 }),
-        )
-        vi.mocked(octokit.repos.createInOrg).mockRejectedValue(
-            Object.assign(new Error("Not Found"), { status: 404 }),
-        )
-        const mockOctokit = octokit as unknown as {
-            repos: {
-                createForAuthenticatedUser: ReturnType<typeof vi.fn>
-            }
-        }
-        mockOctokit.repos.createForAuthenticatedUser.mockResolvedValue({
-            data: {
-                clone_url: "https://github.com/ppatel/crucible-game-test.git",
-                html_url: "https://github.com/ppatel/crucible-game-test",
-                full_name: "ppatel/crucible-game-test",
-            },
-        } as never)
-        vi.mocked(octokit.request).mockResolvedValue({ data: {} } as never)
-
-        await createGameRepo(octokit, {
-            org: "ppatel",
-            gameId: "test",
-            displayName: "Test Game",
-            githubToken: "ghp_test",
-        })
-
-        // Verify rulesets were applied (best-effort)
-        expect(vi.mocked(octokit.request)).toHaveBeenCalledWith(
-            "POST /repos/{owner}/{repo}/rulesets",
-            expect.objectContaining({
-                owner: "ppatel",
-                repo: "crucible-game-test",
-                name: "crucible-protected-files",
-            }),
-        )
-    })
-
-    it("reuses existing repo when it already exists", async () => {
+    it("throws CRUCIBLE-201 when repo already exists", async () => {
         const octokit = createMockOctokit()
         vi.mocked(octokit.repos.get).mockResolvedValue({
             data: {
@@ -256,19 +196,19 @@ describe("createGameRepo", () => {
                 full_name: "ppatel-volley/crucible-game-scottish-trivia",
             },
         } as never)
-        vi.mocked(octokit.request).mockResolvedValue({ data: {} } as never)
-
-        const result = await createGameRepo(octokit, {
-            org: "ppatel-volley",
-            gameId: "scottish-trivia",
-            displayName: "Scottish Trivia",
-            githubToken: "ghp_test",
-        })
-
-        expect(result.cloneUrl).toBe("https://github.com/ppatel-volley/crucible-game-scottish-trivia.git")
-        expect(result.fullName).toBe("ppatel-volley/crucible-game-scottish-trivia")
-        // Should NOT have called createInOrg since repo already exists
-        expect(vi.mocked(octokit.repos.createInOrg)).not.toHaveBeenCalled()
+        try {
+            await createGameRepo(octokit, {
+                org: "ppatel-volley",
+                gameId: "scottish-trivia",
+                displayName: "Scottish Trivia",
+                githubToken: "ghp_test",
+            })
+            expect.fail("Should have thrown")
+        } catch (err) {
+            expect(err).toBeInstanceOf(CrucibleError)
+            expect((err as CrucibleError).code).toBe("CRUCIBLE-201")
+            expect(vi.mocked(octokit.repos.createInOrg)).not.toHaveBeenCalled()
+        }
     })
 })
 
