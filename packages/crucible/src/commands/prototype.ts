@@ -22,7 +22,8 @@ export function registerPrototypeCommand(program: Command): void {
         .option("--port <port>", "Container port", (v: string) => parseInt(v, 10), 3000)
         .option("--ws-port <port>", "WebSocket port (for VGF games)", (v: string) => parseInt(v, 10))
         .option("--ingress <hostname>", "External hostname for the prototype")
-        .option("--docker", "Build Docker image locally instead of using Buildpacks (required for VGF monorepos)", false)
+        .option("--docker", "Build Docker image locally instead of in-cluster", false)
+        .option("--dockerfile", "Use Dockerfile build strategy in Bifrost (Kaniko, no local Docker needed)", false)
         .option("--image-tag <tag>", "Docker image tag", "latest")
         .action(async (gameId: string, options) => {
             await runPrototypeCommand(gameId, options)
@@ -42,6 +43,7 @@ export async function runPrototypeCommand(
         wsPort?: number
         ingress?: string
         docker: boolean
+        dockerfile: boolean
         imageTag: string
     },
 ): Promise<void> {
@@ -113,18 +115,22 @@ export async function runPrototypeCommand(
 
     const spinner = logger.spinner("Deploying prototype...")
 
-    // Resolve build mode: --docker → image, --source → source, git remote → source, fallback → image
+    // Resolve build mode: --docker → image, --dockerfile → source+dockerfile, --source → source, git remote → source
     const repoUrl = options.docker ? null : (options.source ?? await resolveGitHubRepoUrl(gamePath))
 
     if (!options.docker && !repoUrl) {
-        logger.warn("No git remote found and --source not provided. Use --docker for VGF monorepo games.")
+        logger.warn("No git remote found and --source not provided. Use --docker or --dockerfile for VGF games.")
     }
 
     // Generate the GamePrototype CRD
     const crd = generateGamePrototypeCRD({
         gameId,
         ...(repoUrl
-            ? { sourceUrl: repoUrl, sourceRevision: "main" }
+            ? {
+                  sourceUrl: repoUrl,
+                  sourceRevision: "main",
+                  ...(options.dockerfile ? { buildStrategy: "dockerfile" as const } : {}),
+              }
             : { imageTag: options.imageTag }),
         registryHost: options.registry,
         port: options.port,

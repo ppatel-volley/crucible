@@ -77,6 +77,13 @@ export function generateGamePrototypeCRD(
             url: options.sourceUrl,
             revision: options.sourceRevision ?? "main",
         }
+        // Dockerfile build strategy (Kaniko) — defaults to buildpacks if omitted
+        if (options.buildStrategy === "dockerfile") {
+            spec.source.buildStrategy = "dockerfile"
+            if (options.dockerfilePath) {
+                spec.source.dockerfilePath = options.dockerfilePath
+            }
+        }
     } else {
         spec.image = `${registryHost}/${options.gameId}:${options.imageTag ?? "latest"}`
     }
@@ -118,6 +125,8 @@ export function serializeGamePrototypeCRD(crd: GamePrototypeCRD): string {
         if (crd.spec.source.subPath) yaml += `    subPath: ${crd.spec.source.subPath}\n`
         if (crd.spec.source.secretRef) yaml += `    secretRef:\n      name: ${crd.spec.source.secretRef.name}\n`
         if (crd.spec.source.builderImage) yaml += `    builderImage: ${crd.spec.source.builderImage}\n`
+        if (crd.spec.source.buildStrategy) yaml += `    buildStrategy: ${crd.spec.source.buildStrategy}\n`
+        if (crd.spec.source.dockerfilePath) yaml += `    dockerfilePath: ${crd.spec.source.dockerfilePath}\n`
     }
     if (crd.spec.port) yaml += `  port: ${crd.spec.port}\n`
     if (crd.spec.websocketPort) yaml += `  websocketPort: ${crd.spec.websocketPort}\n`

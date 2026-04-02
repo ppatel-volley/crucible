@@ -108,8 +108,14 @@ describe("registry", () => {
             expect(localImage).toBe("my-game:abc1234")
             expect(mockExeca).toHaveBeenCalledWith(
                 "docker",
-                ["build", "-t", "my-game:abc1234", "/tmp/my-game"],
-                { timeout: 300_000 },
+                [
+                    "build",
+                    "--platform", "linux/amd64",
+                    "--secret", "id=npm_token,env=NPM_TOKEN",
+                    "-t", "my-game:abc1234",
+                    "/tmp/my-game",
+                ],
+                { timeout: 300_000, env: expect.any(Object) },
             )
         })
 
