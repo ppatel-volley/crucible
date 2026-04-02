@@ -7,6 +7,7 @@ import { loadConfig } from "../config/config.js"
 import { createLogger } from "../util/logger.js"
 import { usageError, networkError } from "../util/errors.js"
 import { generateGamePrototypeCRD, serializeGamePrototypeCRD, parseDependencies } from "../prototype/crd.js"
+import { buildGameImage, pushToPrototypeRegistry, isDockerAvailable } from "../prototype/registry.js"
 
 export function registerPrototypeCommand(program: Command): void {
     program
@@ -21,6 +22,8 @@ export function registerPrototypeCommand(program: Command): void {
         .option("--port <port>", "Container port", parseInt, 3000)
         .option("--ws-port <port>", "WebSocket port (for VGF games)", parseInt)
         .option("--ingress <hostname>", "External hostname for the prototype")
+        .option("--docker", "Build Docker image locally instead of using Buildpacks (required for VGF monorepos)", false)
+        .option("--image-tag <tag>", "Docker image tag", "latest")
         .action(async (gameId: string, options) => {
             await runPrototypeCommand(gameId, options)
         })
@@ -38,6 +41,8 @@ export async function runPrototypeCommand(
         port: number
         wsPort?: number
         ingress?: string
+        docker: boolean
+        imageTag: string
     },
 ): Promise<void> {
     const paths = resolvePaths()
@@ -74,24 +79,53 @@ export async function runPrototypeCommand(
     await checkKubectlAccess()
 
     // Deploy prototype
-    const spinner = logger.spinner("Deploying prototype...")
+    const ingressHostname = options.ingress ?? `${gameId}.volley-services.net`
+    let imageRef: string | undefined
 
-    // Resolve GitHub repo URL for source-based builds
-    const repoUrl = options.source ?? await resolveGitHubRepoUrl(gamePath)
+    if (options.docker) {
+        // Docker-based build: build locally, push to Bifrost registry
+        const dockerAvailable = await isDockerAvailable()
+        if (!dockerAvailable) {
+            throw usageError(
+                "CRUCIBLE-902",
+                "Docker is not available",
+                "Install and start Docker Desktop, then retry with --docker.",
+            )
+        }
 
-    if (!repoUrl) {
-        logger.warn("No git remote found and --source not provided. Using image-based deploy (requires Docker).")
+        const buildSpinner = logger.spinner("Building Docker image...")
+        const localImage = await buildGameImage({
+            gamePath,
+            gameId,
+            tag: options.imageTag,
+        })
+        buildSpinner.succeed(`Image built: ${localImage}`)
+
+        const pushSpinner = logger.spinner("Pushing to Bifrost registry...")
+        imageRef = await pushToPrototypeRegistry({
+            gameId,
+            localImage,
+            tag: options.imageTag,
+            registryHost: options.registry,
+        })
+        pushSpinner.succeed(`Pushed: ${imageRef}`)
     }
 
-    // Auto-generate ingress hostname if not provided
-    const ingressHostname = options.ingress ?? `${gameId}.volley-services.net`
+    const spinner = logger.spinner("Deploying prototype...")
+
+    // Resolve build mode: --docker → image, --source → source, git remote → source, fallback → image
+    const repoUrl = options.docker ? null : (options.source ?? await resolveGitHubRepoUrl(gamePath))
+
+    if (!options.docker && !repoUrl) {
+        logger.warn("No git remote found and --source not provided. Use --docker for VGF monorepo games.")
+    }
 
     // Generate the GamePrototype CRD
     const crd = generateGamePrototypeCRD({
         gameId,
         ...(repoUrl
             ? { sourceUrl: repoUrl, sourceRevision: "main" }
-            : { imageTag: "latest" }),
+            : { imageTag: options.imageTag }),
         registryHost: options.registry,
         port: options.port,
         websocketPort: options.wsPort,
@@ -191,6 +225,7 @@ async function kubectlApply(filePath: string): Promise<void> {
             "CRUCIBLE-901",
             "Failed to apply GamePrototype to cluster",
             "Check kubectl access and that the Bifrost CRD is installed.",
+            { cause: err instanceof Error ? err : new Error(String(err)) },
         )
     }
 }

@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest"
 import {
     buildImageRef,
+    buildGameImage,
     tagImage,
     pushImage,
     pushToPrototypeRegistry,
@@ -93,6 +94,47 @@ describe("registry", () => {
             })
 
             expect(ref).toBe("bifrost-registry.volley-services.net/my-game:latest")
+        })
+    })
+
+    describe("buildGameImage", () => {
+        it("builds with correct docker build args", async () => {
+            const localImage = await buildGameImage({
+                gamePath: "/tmp/my-game",
+                gameId: "my-game",
+                tag: "abc1234",
+            })
+
+            expect(localImage).toBe("my-game:abc1234")
+            expect(mockExeca).toHaveBeenCalledWith(
+                "docker",
+                ["build", "-t", "my-game:abc1234", "/tmp/my-game"],
+                { timeout: 300_000 },
+            )
+        })
+
+        it("defaults to 'latest' tag when not specified", async () => {
+            const localImage = await buildGameImage({
+                gamePath: "/tmp/my-game",
+                gameId: "my-game",
+            })
+
+            expect(localImage).toBe("my-game:latest")
+        })
+
+        it("throws CRUCIBLE-902 on build failure", async () => {
+            mockExeca.mockRejectedValueOnce(new Error("Dockerfile syntax error"))
+
+            await expect(
+                buildGameImage({ gamePath: "/tmp/bad", gameId: "bad-game" }),
+            ).rejects.toThrow(CrucibleError)
+
+            try {
+                mockExeca.mockRejectedValueOnce(new Error("Dockerfile syntax error"))
+                await buildGameImage({ gamePath: "/tmp/bad", gameId: "bad-game" })
+            } catch (err) {
+                expect((err as CrucibleError).code).toBe("CRUCIBLE-902")
+            }
         })
     })
 
