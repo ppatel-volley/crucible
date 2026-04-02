@@ -169,9 +169,9 @@ CrucibleAdmin SSO permission set merged. `crucible-ci` IAM role applied. AWS res
 | `crucible-production` namespace | Not started | |
 | DNS (`volley-services.net`) | Automatic via external-dns | Created from ingress annotations |
 
-### Milestone 2C: Registry API — SCAFFOLDED
+### Milestone 2C: Registry API — DEPLOYED
 
-Lambda handlers implemented in `packages/crucible-registry/` (17 tests). Not yet deployed to API Gateway.
+Lambda handlers implemented in `packages/crucible-registry/` (17 tests). **Deployed to AWS via Terraform (volley-infra #2112, applied 2026-04-01).** Datadog Lambda layer enabled for observability.
 
 | Handler | Route | Status |
 |---------|-------|--------|
@@ -266,4 +266,4 @@ Depends on Phase 3. See `docs/development-plan.md`.
 | ~~#3~~ | crucible | Prototype command + Registry API | **Merged** |
 | ~~#12~~ | crucible | crucible-deploy CI tool (Phase 3A) | **Merged** |
 | #12 | bifrost | Proto-Hub briefing for Bifrost agent | Open (awaiting Bifrost team) |
-| #2112 | volley-infra | Registry API Terraform (Lambda + API Gateway) | Awaiting `atlantis apply` |
+| ~~#2112~~ | volley-infra | Registry API Terraform (Lambda + API Gateway) | **Merged + Applied** |
