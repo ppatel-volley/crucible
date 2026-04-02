@@ -202,17 +202,25 @@ Lambda handlers implemented in `packages/crucible-registry/` (17 tests). **Deplo
 
 **Review:** Internal review + Cursor reviewer. All findings addressed (CloudFormation waiter, OIDC param, NetworkPolicy scoping, ECR permissions, gameId validation).
 
-### Milestone 3B: CLI Publish + Ops Commands — PARTIAL
+### Milestone 3B: CLI Publish + Ops Commands — MOSTLY COMPLETE
 
-`crucible publish` has pre-flights + CI polling. Other ops commands scaffolded only.
+| Command | Status | Notes |
+|---------|--------|-------|
+| `crucible publish` | **Working** | Pre-flights, git push, CI polling with per-job progress |
+| `crucible rollback` | **Working** | kubectl rollout undo + `--to` revision support |
+| `crucible promote` | **Working** | Registry API fetch + cross-env registration, prod --confirm safety |
+| `crucible logs` | **Working** | kubectl logs with --follow streaming + --lines batch mode |
+| `crucible login` | OIDC built | Needs SSO config values |
+| `crucible list` | **Working** | Local game discovery + table formatting |
+| `crucible status` | **Working** | Bifrost prototype + env tiers |
 
 ### Milestone 3C: Safety + Resilience — NOT STARTED
 
 ---
 
-## Phase 4: Proto-Hub (Foundry) — FORK COMPLETE
+## Phase 4: Proto-Hub (Foundry) — LIVE WITH BIFROST PROTOTYPES
 
-Proto-Hub forked from Hub, stripped, and running locally with AI-generated placeholder games.
+Proto-Hub forked from Hub, stripped, running locally, and showing real Bifrost prototypes.
 
 | Item | Status | Notes |
 |------|--------|-------|
@@ -220,10 +228,17 @@ Proto-Hub forked from Hub, stripped, and running locally with AI-generated place
 | PlatformProvider working locally | Done | ensureLocalHubSessionId pattern |
 | Placeholder games rendering | Done | 5 Foundry-branded games with Fal.ai artwork |
 | Default prototype tile asset | Done | Wireframe cube for Bifrost prototypes |
-| Registry API integration (4.2) | Not started | Blocked on Registry API deployment |
-| Bifrost prototype integration (4.3) | Not started | |
-| Direct URL launch for prototypes (4.4) | Not started | |
-| QR code pairing (4.5) | Not started | |
+| Game titles on tiles | Done | Gradient overlay with title text |
+| Hub observability removed | Done | Cleared Datadog, Segment, Amplitude defaults |
+| Debug overlay removed | Done | Hub debug panel stripped |
+| Registry API integration (4.2) | **Done** | `useGames()` fetches from Registry API with 15s poll |
+| Bifrost prototype integration (4.3) | **Done** | Fetches from `bifrost-api.volley-services.net/prototypes` via Vite proxy |
+| Direct URL launch for prototypes (4.4) | **Done** | `FoundryGameOrchestration` routes by source, 5s ready fallback |
+| Game titles on tiles | Done | Gradient overlay at bottom of each tile |
+| QR code pairing (4.5) | Not started | Needs Bifrost WebSocket routing |
+| Proto-Hub CI/CD (4.7) | Not started | Needs CloudFront provisioning |
+
+**Milestone achieved (2026-04-01):** Space Invaders and Tic-Tac-Toe prototypes visible on Foundry carousel via Bifrost API. Both games launch in iframe with direct URL. Bifrost API CORS proxy via Vite for local dev.
 
 ---
 
@@ -235,7 +250,7 @@ Depends on Phase 3. See `docs/development-plan.md`.
 
 ## Overall Stats
 
-- **Total tests:** 424 (357 crucible + 17 registry + 50 deploy, across 46 test files)
+- **Total tests:** 444 (377 crucible + 17 registry + 50 deploy, across 46 test files)
 - **Typecheck:** Clean (all 3 packages)
 - **All commands registered:** No stubs remaining in index.ts
 - **Packages:** `@volley/crucible` (CLI) + `@volley/crucible-registry` (Lambda API) + `@volley/crucible-deploy` (CI deploy tool)
