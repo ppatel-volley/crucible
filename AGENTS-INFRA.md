@@ -41,8 +41,9 @@ Stage 4: production  → Copy built artifacts into minimal runtime image
 ```
 
 **Critical details:**
-- Use `--mount=type=secret,id=npm_token` for `@volley` private package auth during install
-- Use `pnpm deploy --filter=<package> --prod /prod/<name>` to create a pruned production bundle
+- **Always build with `--platform linux/amd64`** — EKS nodes are x86_64. Builds on Apple Silicon (ARM) produce images that fail with `ImagePullBackOff` / "no match for platform in manifest" if the platform is not specified.
+- Use `--mount=type=secret,id=npm_token` for `@volley` private package auth during install. The secret is mounted as a file at `/run/secrets/npm_token` — the Dockerfile `RUN` step must read it into the `NPM_TOKEN` env var: `NPM_TOKEN=$(cat /run/secrets/npm_token) pnpm install --frozen-lockfile`
+- Use `pnpm deploy --filter=<package> --prod /prod/<name>` to create a pruned production bundle (add `--legacy` flag for pnpm v10+)
 - Assets (puzzle data, audio, etc.) must be copied to match the path the server resolves at runtime
 - The server entry point is `node dist/index.js` (compiled TypeScript)
 - Expose port **8080** (production default)

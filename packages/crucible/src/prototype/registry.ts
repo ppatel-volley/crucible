@@ -66,6 +66,7 @@ export async function buildGameImage(options: {
     try {
         await execa("docker", [
             "build",
+            "--platform", "linux/amd64",
             "--secret", "id=npm_token,env=NPM_TOKEN",
             "-t", localImage,
             options.gamePath,
