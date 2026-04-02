@@ -114,10 +114,12 @@ jobs:
 
       - name: Smoke test — GET /games
         run: |
-          # Invoke get-games directly to verify deployment
+          # AWS CLI v2 requires base64-encoded payloads
+          PAYLOAD=$(echo -n '{"httpMethod":"GET","path":"/games","headers":{},"queryStringParameters":null,"pathParameters":null,"body":null}' | base64 -w 0)
+
           aws lambda invoke \
             --function-name "${FUNCTION_PREFIX}-get-games" \
-            --payload '{"httpMethod":"GET","path":"/games","headers":{},"queryStringParameters":null,"pathParameters":null,"body":null}' \
+            --payload "$PAYLOAD" \
             --region "$AWS_REGION" \
             --no-cli-pager \
             /tmp/response.json
