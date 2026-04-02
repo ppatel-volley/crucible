@@ -1,0 +1,129 @@
+name: Registry API Deploy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "packages/crucible-registry/**"
+  workflow_dispatch:
+
+concurrency:
+  group: registry-api-deploy
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: us-east-1
+  FUNCTION_PREFIX: crucible-registry
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Typecheck
+        run: pnpm --filter crucible-registry typecheck
+      - name: Test
+        run: pnpm --filter crucible-registry test:run
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install production dependencies
+        working-directory: packages/crucible-registry
+        run: pnpm install --frozen-lockfile --prod
+
+      - name: Build
+        working-directory: packages/crucible-registry
+        run: pnpm build
+
+      - name: Package Lambda deployment ZIP
+        working-directory: packages/crucible-registry
+        run: |
+          mkdir -p /tmp/lambda-package
+          cp -r dist /tmp/lambda-package/
+          cp -r node_modules /tmp/lambda-package/
+          cp package.json /tmp/lambda-package/
+          cd /tmp/lambda-package
+          zip -r /tmp/crucible-registry.zip .
+          echo "ZIP_SIZE=$(du -h /tmp/crucible-registry.zip | cut -f1)" >> "$GITHUB_ENV"
+          echo "Package size: $(du -h /tmp/crucible-registry.zip | cut -f1)"
+
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          # NOTE: crucible-ci role needs lambda:UpdateFunctionCode + lambda:GetFunction
+          # on arn:aws:lambda:us-east-1:*:function:crucible-registry-*
+          # See volley-infra/terraform/crucible-ci/iam.tf
+          role-to-assume: arn:aws:iam::375633680607:role/crucible-ci
+          aws-region: us-east-1
+          role-session-name: registry-api-deploy-${{ github.run_number }}
+
+      - name: Deploy to Lambda functions
+        run: |
+          FUNCTIONS=(
+            "get-games"
+            "get-game"
+            "put-game"
+            "get-game-history"
+            "delete-game"
+          )
+
+          for func in "${FUNCTIONS[@]}"; do
+            FUNCTION_NAME="${FUNCTION_PREFIX}-${func}"
+            echo "Deploying ${FUNCTION_NAME}..."
+            aws lambda update-function-code \
+              --function-name "$FUNCTION_NAME" \
+              --zip-file fileb:///tmp/crucible-registry.zip \
+              --region "$AWS_REGION" \
+              --no-cli-pager
+
+            # Wait for update to complete
+            aws lambda wait function-updated \
+              --function-name "$FUNCTION_NAME" \
+              --region "$AWS_REGION"
+
+            echo "✓ ${FUNCTION_NAME} deployed"
+          done
+
+      - name: Smoke test — GET /games
+        run: |
+          # Invoke get-games directly to verify deployment
+          aws lambda invoke \
+            --function-name "${FUNCTION_PREFIX}-get-games" \
+            --payload '{"httpMethod":"GET","path":"/games","headers":{},"queryStringParameters":null,"pathParameters":null,"body":null}' \
+            --region "$AWS_REGION" \
+            --no-cli-pager \
+            /tmp/response.json
+
+          STATUS=$(jq -r '.statusCode' /tmp/response.json)
+          echo "GET /games status: ${STATUS}"
+          if [ "$STATUS" != "200" ]; then
+            echo "Smoke test failed! Response:"
+            cat /tmp/response.json
+            exit 1
+          fi
+          echo "✓ Smoke test passed"
