@@ -70,7 +70,7 @@ export async function buildGameImage(options: {
             "--secret", "id=npm_token,env=NPM_TOKEN",
             "-t", localImage,
             options.gamePath,
-        ], { timeout: 300_000, env: { ...process.env } }) // 5 minute build timeout
+        ], { timeout: 300_000, env: { ...process.env, DOCKER_BUILDKIT: "1" } })
     } catch (error) {
         throw networkError(
             "CRUCIBLE-902",

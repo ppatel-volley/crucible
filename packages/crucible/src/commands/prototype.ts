@@ -119,6 +119,13 @@ export async function runPrototypeCommand(
     const repoUrl = options.docker ? null : (options.source ?? await resolveGitHubRepoUrl(gamePath))
 
     if (!options.docker && !repoUrl) {
+        if (options.dockerfile) {
+            throw usageError(
+                "CRUCIBLE-905",
+                "--dockerfile requires a git remote or --source",
+                "Push your game to GitHub first, or use --source <repo-url>.",
+            )
+        }
         logger.warn("No git remote found and --source not provided. Use --docker or --dockerfile for VGF games.")
     }
 
