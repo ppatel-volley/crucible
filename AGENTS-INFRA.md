@@ -29,23 +29,51 @@ Volley runs applications on an **AWS EKS (Kubernetes) cluster** managed via **Fl
 
 ## Docker Image Requirements
 
-### Dockerfile Pattern (VGF monorepo)
+### Dockerfile Pattern (VGF monorepo — prototypes)
 
-All VGF game servers follow this multi-stage pattern:
+For prototype deployments via `crucible prototype --docker`, VGF games use this pattern:
 
 ```
 Stage 1: base        → node:22-slim + pnpm (corepack enable)
-Stage 2: dependencies → Copy package.json files + pnpm install --frozen-lockfile
-Stage 3: build       → Copy source + build all packages + pnpm deploy --prod
-Stage 4: production  → Copy built artifacts into minimal runtime image
+Stage 2: build       → Copy package.json files + pnpm install + copy source + build ALL packages
+Stage 3: production  → Copy full workspace, run with tsx
+```
+
+**Reference Dockerfile:**
+```dockerfile
+FROM node:22-slim AS base
+RUN corepack enable
+
+FROM base AS build
+WORKDIR /app
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
+COPY apps/server/package.json apps/server/
+COPY apps/display/package.json apps/display/
+COPY apps/controller/package.json apps/controller/
+COPY packages/shared/package.json packages/shared/
+RUN --mount=type=secret,id=npm_token NPM_TOKEN=$(cat /run/secrets/npm_token) pnpm install --frozen-lockfile
+COPY . .
+RUN pnpm --filter=@<game>/shared build \
+    && pnpm --filter=@<game>/server build \
+    && pnpm --filter=@<game>/display build \
+    && pnpm --filter=@<game>/controller build
+
+FROM base AS production
+WORKDIR /app
+COPY --from=build /app ./
+EXPOSE 8080
+CMD ["./apps/server/node_modules/.bin/tsx", "apps/server/src/dev.ts"]
 ```
 
 **Critical details:**
-- Use `--mount=type=secret,id=npm_token` for `@volley` private package auth during install
-- Use `pnpm deploy --filter=<package> --prod /prod/<name>` to create a pruned production bundle
-- Assets (puzzle data, audio, etc.) must be copied to match the path the server resolves at runtime
-- The server entry point is `node dist/index.js` (compiled TypeScript)
-- Expose port **8080** (production default)
+- **Always build with `--platform linux/amd64`** — EKS nodes are x86_64. Builds on Apple Silicon (ARM) produce images that fail with `ImagePullBackOff` / "no match for platform in manifest" if the platform is not specified.
+- Use `--mount=type=secret,id=npm_token` for `@volley` private package auth during install. The secret is mounted as a file at `/run/secrets/npm_token` — the Dockerfile `RUN` step must read it into the `NPM_TOKEN` env var: `NPM_TOKEN=$(cat /run/secrets/npm_token) pnpm install --frozen-lockfile`
+- **Build ALL workspace packages** (shared, server, display, controller) — the server must serve display/controller as static files. Without them, Proto-Hub shows a black screen.
+- **Use `tsx` to run the server** — games use `moduleResolution: "bundler"` which produces extensionless imports. Node.js ESM rejects these. `tsx` handles the resolution.
+- **Do NOT use `pnpm deploy --prod`** for prototypes — it strips devDependencies (including `tsx`) and the ESM resolution issue means compiled JS won't run under plain `node`.
+- The server must serve static display/controller builds via Express middleware and auto-create sessions on demand (Proto-Hub sends its own sessionId).
+- Deploy command: `crucible prototype <game-id> --docker --port 8090` (no `--ws-port` — VGF serves HTTP + WS on one port)
+- Expose port **8080** (production default) or **8090** (VGF dev server default)
 
 ### `.npmrc` for Private Packages
 

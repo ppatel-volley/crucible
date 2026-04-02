@@ -12,7 +12,7 @@
 | Task Type | Relevant Learnings |
 |---|---|
 | Writing or fixing tests | [001](./001-tests-are-source-of-truth.md), [003](./003-scale-dependent-test-values.md), [005](./005-vitest-custom-error-messages.md) |
-| Build failures / TypeScript errors | [002](./002-vitest-is-not-enough.md), [008](./008-r3f-react19-reconciler.md), [051](./051-tsconfig-skip-lib-check.md) |
+| Build failures / TypeScript errors | [002](./002-vitest-is-not-enough.md), [008](./008-r3f-react19-reconciler.md), [051](./051-tsconfig-skip-lib-check.md), [054](./054-prototype-deploy-pitfalls.md) |
 | E2E / Playwright tests | [004](./004-playwright-cross-page-locators.md) |
 | React components / hooks | [006](./006-useref-usememo-closure-capture.md), [007](./007-error-boundaries-above-providers.md) |
 | React Three Fibre / R3F | [006](./006-useref-usememo-closure-capture.md), [008](./008-r3f-react19-reconciler.md), [021](./021-threejs-line-rendering.md) |
@@ -427,3 +427,4 @@ Every original learning mapped to its amalgamated file:
 |---|---------|
 | [050](./050-create-dev-out-of-box-issues.md) | 8 issues found in first real create→dev flow: nested node_modules filter, Windows paths, shared package build, tsconfig skipLibCheck, JSON log readiness, personal GitHub accounts, ruleset perms, NPM_TOKEN warning |
 | [051](./051-tsconfig-skip-lib-check.md) | Template tsconfig.base.json needs `skipLibCheck: true` — without it, shared package build fails on vite/vitest .d.ts type errors |
+| [054](./054-prototype-deploy-pitfalls.md) | 11 issues deploying a VGF game to Bifrost: npm secrets, ARM→AMD64, parseInt radix bug, display not served, session mismatch, ESM imports, and more |

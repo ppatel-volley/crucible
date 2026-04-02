@@ -301,6 +301,8 @@ export interface BifrostSourceSpec {
     subPath?: string
     secretRef?: { name: string }
     builderImage?: string
+    buildStrategy?: "buildpacks" | "dockerfile"
+    dockerfilePath?: string
 }
 
 export interface BifrostIngressSpec {
@@ -330,6 +332,8 @@ export interface PrototypeOptions {
     imageTag?: string
     sourceUrl?: string        // Git repo URL for source-based builds
     sourceRevision?: string   // default: "main"
+    buildStrategy?: "buildpacks" | "dockerfile"  // default: "buildpacks"
+    dockerfilePath?: string   // default: "Dockerfile" (relative to repo root or subPath)
     registryHost?: string     // default: "bifrost-registry.volley-services.net"
     port?: number             // default: 3000
     websocketPort?: number    // dedicated WebSocket port (optional)
