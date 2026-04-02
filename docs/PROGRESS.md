@@ -236,7 +236,7 @@ Proto-Hub forked from Hub, stripped, running locally, and showing real Bifrost p
 | Direct URL launch for prototypes (4.4) | **Done** | `FoundryGameOrchestration` routes by source, 5s ready fallback |
 | Game titles on tiles | Done | Gradient overlay at bottom of each tile |
 | QR code pairing (4.5) | Not started | Needs Bifrost WebSocket routing |
-| Proto-Hub CI/CD (4.7) | Not started | Needs CloudFront provisioning |
+| Proto-Hub CI/CD (4.7) | **Workflow created** | S3 deploy workflow, needs OIDC trust for ProtoHub repo |
 
 **Milestone achieved (2026-04-01):** Space Invaders and Tic-Tac-Toe prototypes visible on Foundry carousel via Bifrost API. Both games launch in iframe with direct URL. Bifrost API CORS proxy via Vite for local dev.
 
