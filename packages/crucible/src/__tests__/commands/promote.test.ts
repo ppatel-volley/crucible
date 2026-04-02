@@ -140,24 +140,19 @@ describe("runPromoteCommand", () => {
         }
     })
 
-    it("throws CRUCIBLE-601 'not yet implemented' for valid inputs", async () => {
+    it("throws CRUCIBLE-601 when registry API is not configured", async () => {
         vi.mocked(stat).mockResolvedValue({} as any)
-
-        // Non-prod promotion (no --confirm needed)
-        await expect(
-            runPromoteCommand("my-game", { from: "dev", to: "staging" }),
-        ).rejects.toThrow(CrucibleError)
 
         try {
             await runPromoteCommand("my-game", { from: "dev", to: "staging" })
         } catch (err) {
             expect(err).toBeInstanceOf(CrucibleError)
             expect((err as CrucibleError).code).toBe("CRUCIBLE-601")
-            expect((err as CrucibleError).message).toContain("not yet implemented")
+            expect((err as CrucibleError).message).toContain("No Registry API URL")
         }
     })
 
-    it("throws CRUCIBLE-601 for valid prod promotion with correct --confirm", async () => {
+    it("throws CRUCIBLE-601 for prod promotion without registry config", async () => {
         vi.mocked(stat).mockResolvedValue({} as any)
 
         try {
