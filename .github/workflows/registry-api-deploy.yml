@@ -52,31 +52,38 @@ jobs:
           node-version: 22
           cache: pnpm
 
-      - name: Install production dependencies
-        working-directory: packages/crucible-registry
-        run: pnpm install --frozen-lockfile --prod
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
 
       - name: Build
-        working-directory: packages/crucible-registry
-        run: pnpm build
+        run: pnpm --filter crucible-registry build
 
       - name: Package Lambda deployment ZIP
-        working-directory: packages/crucible-registry
         run: |
+          cd packages/crucible-registry
           mkdir -p /tmp/lambda-package
-          cp -r dist /tmp/lambda-package/
-          cp -r node_modules /tmp/lambda-package/
+
+          # Copy compiled output (strip source maps and declarations)
+          find dist -name '*.js' | while read f; do
+            mkdir -p "/tmp/lambda-package/$(dirname "$f")"
+            cp "$f" "/tmp/lambda-package/$f"
+          done
+
+          # Install prod-only deps into the package
           cp package.json /tmp/lambda-package/
           cd /tmp/lambda-package
+          npm install --omit=dev --ignore-scripts 2>/dev/null || true
+
           zip -r /tmp/crucible-registry.zip .
-          echo "ZIP_SIZE=$(du -h /tmp/crucible-registry.zip | cut -f1)" >> "$GITHUB_ENV"
           echo "Package size: $(du -h /tmp/crucible-registry.zip | cut -f1)"
+          echo "### Lambda Package" >> "$GITHUB_STEP_SUMMARY"
+          echo "Size: $(du -h /tmp/crucible-registry.zip | cut -f1)" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Configure AWS credentials via OIDC
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          # NOTE: crucible-ci role needs lambda:UpdateFunctionCode + lambda:GetFunction
-          # on arn:aws:lambda:us-east-1:*:function:crucible-registry-*
+          # NOTE: crucible-ci role needs these permissions on crucible-registry-* functions:
+          # lambda:UpdateFunctionCode, lambda:GetFunction, lambda:InvokeFunction
           # See volley-infra/terraform/crucible-ci/iam.tf
           role-to-assume: arn:aws:iam::375633680607:role/crucible-ci
           aws-region: us-east-1
