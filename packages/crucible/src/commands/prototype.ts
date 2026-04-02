@@ -225,6 +225,7 @@ async function kubectlApply(filePath: string): Promise<void> {
             "CRUCIBLE-901",
             "Failed to apply GamePrototype to cluster",
             "Check kubectl access and that the Bifrost CRD is installed.",
+            { cause: err instanceof Error ? err : new Error(String(err)) },
         )
     }
 }
