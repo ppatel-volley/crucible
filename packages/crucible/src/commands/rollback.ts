@@ -55,12 +55,17 @@ export async function runRollbackCommand(
     // Use kubectl rollout undo to revert to the previous ReplicaSet
     const { execa } = await import("execa")
 
+    const undoArgs = [
+        "rollout", "undo",
+        `deployment/${gameId}`,
+        "--namespace", namespace,
+    ]
+    if (options.to) {
+        undoArgs.push(`--to-revision=${options.to}`)
+    }
+
     try {
-        const result = await execa("kubectl", [
-            "rollout", "undo",
-            `deployment/${gameId}`,
-            "--namespace", namespace,
-        ])
+        const result = await execa("kubectl", undoArgs)
         if (result.stdout.trim()) {
             logger.info(result.stdout.trim())
         }

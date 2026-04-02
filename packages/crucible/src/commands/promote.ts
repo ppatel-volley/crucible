@@ -98,9 +98,23 @@ export async function runPromoteCommand(
 
     logger.info(`Registering ${gameId} in ${options.to} with image ${sourceGame.imageTag}...`)
     try {
+        const headers: Record<string, string> = {
+            "Content-Type": "application/json",
+        }
+        // Registry API PUT requires authentication — use stored OIDC token if available
+        try {
+            const { loadTokens } = await import("../auth/token-store.js")
+            const tokens = await loadTokens()
+            if (tokens?.accessToken) {
+                headers["Authorization"] = `Bearer ${tokens.accessToken}`
+            }
+        } catch {
+            // No stored tokens — CI uses IAM auth instead
+        }
+
         const response = await fetch(`${targetRegistryUrl}/games/${gameId}`, {
             method: "PUT",
-            headers: { "Content-Type": "application/json" },
+            headers,
             body: JSON.stringify({
                 imageTag: sourceGame.imageTag,
                 version: sourceGame.version,
