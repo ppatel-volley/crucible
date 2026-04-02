@@ -52,6 +52,36 @@ export async function pushToPrototypeRegistry(options: {
 }
 
 /**
+ * Build a Docker image for a game from its Dockerfile.
+ * Returns the local image tag (e.g. "my-game:abc1234").
+ */
+export async function buildGameImage(options: {
+    gamePath: string
+    gameId: string
+    tag?: string
+}): Promise<string> {
+    const tag = options.tag ?? "latest"
+    const localImage = `${options.gameId}:${tag}`
+
+    try {
+        await execa("docker", [
+            "build",
+            "-t", localImage,
+            options.gamePath,
+        ], { timeout: 300_000 }) // 5 minute build timeout
+    } catch (error) {
+        throw networkError(
+            "CRUCIBLE-902",
+            `Failed to build Docker image for ${options.gameId}`,
+            "Check that Docker Desktop is running and the Dockerfile is valid.",
+            { cause: error instanceof Error ? error : undefined },
+        )
+    }
+
+    return localImage
+}
+
+/**
  * Check if Docker is available.
  */
 export async function isDockerAvailable(): Promise<boolean> {
