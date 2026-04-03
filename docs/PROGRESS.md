@@ -235,10 +235,16 @@ Proto-Hub forked from Hub, stripped, running locally, and showing real Bifrost p
 | Bifrost prototype integration (4.3) | **Done** | Fetches from `bifrost-api.volley-services.net/prototypes` via Vite proxy |
 | Direct URL launch for prototypes (4.4) | **Done** | `FoundryGameOrchestration` routes by source, 5s ready fallback |
 | Game titles on tiles | Done | Gradient overlay at bottom of each tile |
-| QR code pairing (4.5) | Not started | Needs Bifrost WebSocket routing |
-| Proto-Hub CI/CD (4.7) | **Workflow created** | S3 deploy workflow, needs OIDC trust for ProtoHub repo |
+| QR code on lobby screen | **Done** | `qrcode.react` — scan to open controller on phone |
+| VWR ready signal for TV | **Done** | Early postMessage in main.tsx for Fire TV deployment |
+| Stale Hub type cleanup | **Done** | Removed trackingId, PaywallType, dead GameId enum (PR #6) |
+| Proto-Hub CI/CD (4.7) | **Working** | S3 deploy via GitHub Actions, OIDC trust merged |
+| CloudFront distribution | **PR open** | volley-infra #2133, `protohub-dev.volley.tv` |
+| QR code pairing via Weekend app (4.5) | Not started | Needs Platform SDK integration |
 
-**Milestone achieved (2026-04-01):** Space Invaders and Tic-Tac-Toe prototypes visible on Foundry carousel via Bifrost API. Both games launch in iframe with direct URL. Bifrost API CORS proxy via Vite for local dev.
+**Milestones achieved:**
+- **(2026-04-01):** Space Invaders and Tic-Tac-Toe prototypes visible on Foundry carousel via Bifrost API. Both games launch in iframe.
+- **(2026-04-02):** Word Smiths VGF game created, deployed to Bifrost via `--docker`, playable from Proto-Hub with QR code lobby. Bifrost CORS fixed, Kaniko Dockerfile builds working. Registry API CI/CD deployed. Dockerfile template updated for Kaniko compatibility. VWR TV deployment guide written. Fire TV device configured via VWR S3 CLI.
 
 ---
 
