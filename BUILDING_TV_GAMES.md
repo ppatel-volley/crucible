@@ -2157,7 +2157,7 @@ Shell (TV/Mobile) → VWR Loader → VWR → Hub/Games (iframes)
 
 | Component | Minimum Version |
 |-----------|----------------|
-| `@volley/platform-sdk` | >= v7.40.3 |
+| `@volley/platform-sdk` | >= v7.47.2 |
 | Fire TV shell | >= 6.1.0 |
 | Samsung TV shell | >= 1.9.2 |
 | LG TV shell | >= 1.6.0 |
@@ -2334,6 +2334,53 @@ Typically caused by trusted origins mismatch. Check the browser console for reje
 2. Ensure `launchUrl` includes any required query parameters.
 3. Run `npx @volley/vwr-s3-cli get` to inspect your S3 config and `npx @volley/vwr-s3-cli edit` to fix it.
 4. Escalate to @Foundation with your device ID, platform, and shell app version.
+
+### Testing Crucible Games on TV via VWR
+
+Crucible games deployed via Bifrost (`crucible prototype`) have URLs like `https://word-smiths.volley-services.net`. To test on a real TV:
+
+```bash
+# 1. Deploy the game to Bifrost
+crucible prototype word-smiths --dockerfile --port 8090
+
+# 2. Configure VWR to load the game
+npx @volley/vwr-s3-cli setup \
+    --device-id <YOUR-TV-DEVICE-ID> \
+    --platform FIRE_TV \
+    --env dev \
+    --launch-url "https://word-smiths.volley-services.net"
+
+# 3. Restart the shell app on the TV
+```
+
+To test Proto-Hub (Foundry) as the Hub replacement on a TV:
+
+```bash
+npx @volley/vwr-s3-cli setup \
+    --device-id <YOUR-TV-DEVICE-ID> \
+    --platform FIRE_TV \
+    --env dev \
+    --launch-url "https://crucible-clients-dev.s3.amazonaws.com/protohub/index.html"
+```
+
+Proto-Hub shows the game carousel. The user selects a game with the remote, and VWR loads the game iframe. Games must send the `ready` postMessage for VWR to display them — VGF games handle this via Platform SDK automatically. Non-VGF games (e.g. Space Invaders) rely on Proto-Hub's 5-second ready fallback.
+
+**Signalling (already handled by Platform SDK >= 7.40.3):**
+
+Games signal "ready" to VWR:
+```typescript
+window.parent.postMessage({ type: "ready", source: "platform-sdk-iframe", args: [] }, "*")
+```
+
+Games signal "close" to return to Hub:
+```typescript
+window.parent.postMessage({ type: "close", source: "volley" }, "*")
+```
+
+Hub launches a game:
+```typescript
+window.parent.postMessage({ type: "vwr:launchGame", source: "volley", args: [gameUrl] }, "*")
+```
 
 > **Source:** [Notion — Dev and Test Workflows with VWR](https://www.notion.so/2e4442bc9713800e82eae17bf850ee25)
 
