@@ -165,6 +165,22 @@ export async function runPrototypeCommand(
         await kubectlApply(tmpFile)
         spinner.succeed("GamePrototype applied")
 
+        // Trigger rollout restart if deployment already exists
+        // (kubectl apply is an in-place upsert — redeploying with the same
+        // :latest tag won't restart pods even with imagePullPolicy: Always)
+        const protoNamespace = `${gameId}-prototype`
+        try {
+            const { execa: ex } = await import("execa")
+            await ex("kubectl", [
+                "rollout", "restart",
+                `deployment/${gameId}`,
+                "--namespace", protoNamespace,
+            ])
+            logger.info("Triggered rollout restart")
+        } catch {
+            // Deployment might not exist yet (first deploy) — that's fine
+        }
+
         // Poll for status
         const statusSpinner = logger.spinner("Waiting for Bifrost...")
         // Buildpack cold starts can take 3-5 minutes
