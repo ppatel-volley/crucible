@@ -1,20 +1,23 @@
 FROM node:22-slim AS base
 RUN corepack enable
 
-FROM base AS dependencies
+FROM base AS build
 WORKDIR /app
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
 COPY apps/server/package.json apps/server/
+COPY apps/display/package.json apps/display/
+COPY apps/controller/package.json apps/controller/
 COPY packages/shared/package.json packages/shared/
-RUN --mount=type=secret,id=npm_token pnpm install --frozen-lockfile
-
-FROM dependencies AS build
+ARG NPM_TOKEN
+RUN pnpm install --frozen-lockfile
 COPY . .
-RUN pnpm build
-RUN pnpm deploy --filter=@{{ gameId }}/server --prod /prod/server
+RUN pnpm --filter=@{{ gameId }}/shared build \
+    && pnpm --filter=@{{ gameId }}/server build \
+    && pnpm --filter=@{{ gameId }}/display build \
+    && pnpm --filter=@{{ gameId }}/controller build
 
 FROM base AS production
-COPY --from=build /prod/server /app
 WORKDIR /app
+COPY --from=build /app ./
 EXPOSE 8080
-CMD ["node", "dist/index.js"]
+CMD ["./apps/server/node_modules/.bin/tsx", "apps/server/src/dev.ts"]
