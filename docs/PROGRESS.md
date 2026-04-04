@@ -218,14 +218,14 @@ Lambda handlers implemented in `packages/crucible-registry/` (17 tests). **Deplo
 
 ---
 
-## Phase 4: Proto-Hub (Foundry) — LIVE WITH BIFROST PROTOTYPES
+## Phase 4: Proto-Hub (Foundry) — LIVE ON FIRE TV
 
-Proto-Hub forked from Hub, stripped, running locally, and showing real Bifrost prototypes.
+Proto-Hub forked from Hub, stripped, deployed to CloudFront, and **running on real Fire TV hardware via VWR**. Carousel renders, D-pad navigation works, hero images display.
 
 | Item | Status | Notes |
 |------|--------|-------|
 | Fork + strip paywall/billing/experiments/mobile | Done | 346 files removed |
-| PlatformProvider working locally | Done | ensureLocalHubSessionId pattern |
+| PlatformProvider working locally | Done | `gameId: "hub"` for session ID auto-generation |
 | Placeholder games rendering | Done | 5 Foundry-branded games with Fal.ai artwork |
 | Default prototype tile asset | Done | Wireframe cube for Bifrost prototypes |
 | Game titles on tiles | Done | Gradient overlay with title text |
@@ -234,17 +234,23 @@ Proto-Hub forked from Hub, stripped, running locally, and showing real Bifrost p
 | Registry API integration (4.2) | **Done** | `useGames()` fetches from Registry API with 15s poll |
 | Bifrost prototype integration (4.3) | **Done** | Fetches from `bifrost-api.volley-services.net/prototypes` via Vite proxy |
 | Direct URL launch for prototypes (4.4) | **Done** | `FoundryGameOrchestration` routes by source, 5s ready fallback |
-| Game titles on tiles | Done | Gradient overlay at bottom of each tile |
 | QR code on lobby screen | **Done** | `qrcode.react` — scan to open controller on phone |
-| VWR ready signal for TV | **Done** | Early postMessage in main.tsx for Fire TV deployment |
+| VWR ready signal for TV | **Done** | SDK emits ready automatically with `gameId: "hub"` |
 | Stale Hub type cleanup | **Done** | Removed trackingId, PaywallType, dead GameId enum (PR #6) |
-| Proto-Hub CI/CD (4.7) | **Working** | S3 deploy via GitHub Actions, OIDC trust merged |
-| CloudFront distribution | **PR open** | volley-infra #2133, `protohub-dev.volley.tv` |
+| Proto-Hub CI/CD (4.7) | **Working** | S3 deploy via GitHub Actions, OIDC trust on main |
+| CloudFront distribution | **Live** | `protohub-dev.volley.tv` via crucible-clients-dev S3 |
+| BrowserIpc cross-origin fix | **Done** | Added VWR origins to `trustedOrigins` in PlatformProvider (PR #19) |
+| Image preloading Fire TV fix | **Done** | `deferMainHubAssets=true` — SDK 28 AVIF decode fails (PR #21) |
+| Exit modal disabled on carousel | **Done** | VWR handles exit, modal was stealing D-pad focus (PR #22) |
+| TypeScript errors resolved | **Done** | 6 errors fixed — tsc passes cleanly (PR #22) |
+| Platform errors non-fatal | **Done** | auth-dev.volley.tv 401 on Fire TV no longer blocks app |
 | QR code pairing via Weekend app (4.5) | Not started | Needs Platform SDK integration |
+| Game launching on Fire TV | **Blocked** | Bifrost prototypes resolve to private 10.x IPs — needs public ingress |
 
 **Milestones achieved:**
 - **(2026-04-01):** Space Invaders and Tic-Tac-Toe prototypes visible on Foundry carousel via Bifrost API. Both games launch in iframe.
 - **(2026-04-02):** Word Smiths VGF game created, deployed to Bifrost via `--docker`, playable from Proto-Hub with QR code lobby. Bifrost CORS fixed, Kaniko Dockerfile builds working. Registry API CI/CD deployed. Dockerfile template updated for Kaniko compatibility. VWR TV deployment guide written. Fire TV device configured via VWR S3 CLI.
+- **(2026-04-04):** **Proto-Hub live on Fire TV!** Carousel renders with 8 game tiles (3 Bifrost + 5 placeholder), D-pad navigation works, hero images display. Key fixes: trustedOrigins for BrowserIpc (PR #19), deferred image preloading for SDK 28 (PR #21), exit modal disabled (PR #22). Game launching blocked on Bifrost public ingress.
 
 ---
 
