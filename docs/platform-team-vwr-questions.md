@@ -78,6 +78,18 @@ The Platform SDK's BrowserIpc connect times out after ~1 second. On Fire TV's We
 - BrowserIpc handshake from Proto-Hub to VWR silently dropped ✗
 - Without BrowserIpc, VWR can't forward key events to the iframe ✗
 
+## Updated Understanding (from VWR Release Process doc)
+
+We've read the VWR Release Process Notion doc. We understand that:
+- VWR's RPC is **designed** to work cross-origin (that's its purpose — "circumvents any cross-origin issues between iframe and parent")
+- VWR runs the RPC **server**, Hub iframe runs the RPC **client**
+- The Platform SDK should detect VWR mode and use RPC implementations
+- `BrowserIpc.connect` IS being attempted (the SDK is in RPC client mode) but the server isn't responding
+
+So the question becomes: **why isn't VWR's BrowserIpc server responding to Proto-Hub's handshake?** Is it an origin whitelist issue in the BrowserIpc server, or something else?
+
+Since VWR's RPC is explicitly designed for cross-origin, the same-origin deploy might not be the right fix. There may be a simpler configuration issue we're missing.
+
 ## Relevant Code
 
 - `docs/vwr-browseripc-root-cause.md` — full investigation
