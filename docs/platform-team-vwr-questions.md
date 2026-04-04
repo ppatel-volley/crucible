@@ -1,14 +1,27 @@
 # Questions for Platform Engineering — Proto-Hub + VWR Integration
 
-> **Date:** 2026-04-04
+> **Date:** 2026-04-04 (updated)
 > **From:** Crucible team (Pratik + agents)
-> **Priority:** High — blocking Fire TV demo
+> **Priority:** Medium — informational, most blockers resolved
+
+---
+
+## Status Update (2026-04-04)
+
+**Proto-Hub (Foundry) is live on Fire TV!** Carousel renders, D-pad navigation works, hero images display. Key fixes that got us here:
+
+1. **`trustedOrigins` in PlatformProvider** (PR #19) — added `game-clients-dev/staging/prod` origins, fixing BrowserIpc handshake
+2. **Deferred image preloading** (PR #21) — Fire TV SDK 28 fails some AVIF image decode operations, blocking carousel render
+3. **`gameId: "hub"`** — fixes session ID auto-generation
+4. **Non-fatal platform errors** — auth-dev.volley.tv returns 401 on Fire TV, but the app continues
+
+**Remaining issue:** Game launching doesn't work yet — Bifrost prototypes resolve to private 10.x IPs unreachable from Fire TV. This is a Bifrost networking issue, not a Platform/VWR issue.
 
 ---
 
 ## Context
 
-We've built Proto-Hub (Foundry), a game launcher that replaces the Hub for Crucible/Bifrost games. It's deployed to CloudFront at `protohub-dev.volley.tv` and renders correctly inside VWR on Fire TV — the carousel loads, game tiles display, hero images show. But **D-pad input doesn't work**.
+We've built Proto-Hub (Foundry), a game launcher that replaces the Hub for Crucible/Bifrost games. It's deployed to CloudFront at `protohub-dev.volley.tv` and works inside VWR on Fire TV — the carousel loads, game tiles display, hero images show, and **D-pad navigation works**.
 
 ## Root Cause (identified via source code analysis)
 
@@ -71,12 +84,13 @@ The Platform SDK's BrowserIpc connect times out after ~1 second. On Fire TV's We
 - Hero images display fullscreen ✓
 - Ready event received by VWR ✓
 - D-pad events reach native shell ✓
+- **D-pad events forwarded to Proto-Hub iframe ✓** (fixed via trustedOrigins in PR #19)
+- **BrowserIpc handshake succeeds ✓** (trustedOrigins includes VWR's origin)
+- **Carousel tiles navigable with D-pad ✓** (fixed via deferred preloading in PR #21)
 
 ## What Doesn't Work
 
-- **D-pad events don't reach Proto-Hub iframe** ✗
-- BrowserIpc handshake from Proto-Hub to VWR silently dropped ✗
-- Without BrowserIpc, VWR can't forward key events to the iframe ✗
+- **Game launching** — Bifrost prototype URLs resolve to private 10.x IPs (Bifrost networking issue, not Platform/VWR)
 
 ## Updated Understanding (from VWR Release Process doc)
 
