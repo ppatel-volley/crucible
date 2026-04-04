@@ -2322,7 +2322,7 @@ Once the S3 config is uploaded and the Amplitude flag is enabled:
 ### VWR Troubleshooting
 
 **RPC Connection Timeout** (`BrowserIpc.connect: Timed out`):
-Typically caused by trusted origins mismatch. Check the browser console for rejected messages and verify trusted origins match the actual origins (watch for `http` vs `https`, port differences, etc.).
+Caused by trusted origins mismatch. BrowserIpc checks `event.origin` against a `trustedOrigins` set built from `window.location.origin` + hardcoded shell origins + the `trustedOrigins` parameter in `PlatformProvider`. If your app is on a different origin than VWR (e.g. `protohub-dev.volley.tv` vs `game-clients-dev.volley.tv`), you MUST add VWR's origin to `trustedOrigins` in your PlatformProvider config. The VWR config's `trustedDomains` field is NOT the same as BrowserIpc's trusted origins — they're separate mechanisms.
 
 **Unable to use `vwr-s3-cli`:**
 1. Ensure you're logged in via the **TVDeveloper** SSO profile — re-run `aws sso login` if needed.
@@ -2356,12 +2356,24 @@ npx @volley/vwr-s3-cli setup \
 To test Proto-Hub (Foundry) as the Hub replacement on a TV:
 
 ```bash
-npx @volley/vwr-s3-cli setup \
+# Proto-Hub must be set as hubUrl (NOT launchUrl). Use vwr-s3-cli edit
+# to set hubUrl to the CloudFront URL, NOT the raw S3 URL.
+npx @volley/vwr-s3-cli edit \
     --device-id <YOUR-TV-DEVICE-ID> \
-    --platform FIRE_TV \
-    --env dev \
-    --launch-url "https://crucible-clients-dev.s3.amazonaws.com/protohub/index.html"
+    --platform FIRE_TV
+
+# Set these values:
+#   hubUrl: https://protohub-dev.volley.tv
+#   trustedDomains: ["https://game-clients-dev.volley.tv", "https://protohub-dev.volley.tv"]
 ```
+
+**Critical:** Proto-Hub must be `hubUrl`, not `launchUrl`. VWR gives hub iframes session context and RPC setup that game iframes don't get. Using `launchUrl` causes a session ID crash.
+
+Proto-Hub also needs `trustedOrigins` configured in its `PlatformProvider` to include VWR's origin (`game-clients-dev.volley.tv`) — otherwise BrowserIpc silently drops handshake responses and D-pad input won't work.
+
+**Known Fire TV issues (resolved):**
+- Fire TV SDK 28 (Chromium ~68) fails AVIF format detection, blocking image preloading. Fix: set `deferMainHubAssets=true` in `useImagePreloading`.
+- Platform auth returns 401 on Fire TV. Fix: treat platform errors as non-fatal warnings.
 
 Proto-Hub shows the game carousel. The user selects a game with the remote, and VWR loads the game iframe. Games must send the `ready` postMessage for VWR to display them — VGF games handle this via Platform SDK automatically. Non-VGF games (e.g. Space Invaders) rely on Proto-Hub's 5-second ready fallback.
 
